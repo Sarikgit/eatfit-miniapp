@@ -174,14 +174,12 @@
       <div class="field" style="margin:0"><label>Жиры</label><input type="number" id="d1-fat" placeholder="18"></div>
       <div class="field" style="margin:0"><label>Угл.</label><input type="number" id="d1-carb" placeholder="55"></div>
     </div>
-    <div class="field" style="margin-bottom:6px">
-      <label>Фото URL</label>
-      <input type="url" id="d1-photo" placeholder="https://..." oninput="previewPhoto('d1')">
+    <input type="hidden" id="d1-photo">
+    <div id="d1-photo-box" class="photo-box" onclick="document.getElementById('d1-file').click()" style="cursor:pointer">
+      <div class="photo-placeholder">📷</div>
+      <div><div class="photo-info-title">Нажмите чтобы выбрать фото</div><div class="photo-info-sub">Из галереи телефона</div></div>
     </div>
-    <div id="d1-photo-box" class="photo-box">
-      <div class="photo-placeholder">🍱</div>
-      <div><div class="photo-info-title">Фото не добавлено</div><div class="photo-info-sub">Вставьте ссылку на фото выше</div></div>
-    </div>
+    <input type="file" id="d1-file" accept="image/*" style="display:none" onchange="uploadPhoto('d1', this)">
   </div>
 
   <!-- Dish 2 -->
@@ -210,14 +208,12 @@
       <div class="field" style="margin:0"><label>Жиры</label><input type="number" id="d2-fat" placeholder="14"></div>
       <div class="field" style="margin:0"><label>Угл.</label><input type="number" id="d2-carb" placeholder="38"></div>
     </div>
-    <div class="field" style="margin-bottom:6px">
-      <label>Фото URL</label>
-      <input type="url" id="d2-photo" placeholder="https://..." oninput="previewPhoto('d2')">
+    <input type="hidden" id="d2-photo">
+    <div id="d2-photo-box" class="photo-box" onclick="document.getElementById('d2-file').click()" style="cursor:pointer">
+      <div class="photo-placeholder">📷</div>
+      <div><div class="photo-info-title">Нажмите чтобы выбрать фото</div><div class="photo-info-sub">Из галереи телефона</div></div>
     </div>
-    <div id="d2-photo-box" class="photo-box">
-      <div class="photo-placeholder">🍱</div>
-      <div><div class="photo-info-title">Фото не добавлено</div><div class="photo-info-sub">Вставьте ссылку на фото выше</div></div>
-    </div>
+    <input type="file" id="d2-file" accept="image/*" style="display:none" onchange="uploadPhoto('d2', this)">
   </div>
 
   <button class="btn btn-primary" onclick="createDay()" style="margin-bottom:32px">
@@ -271,22 +267,36 @@ function showTab(name) {
   if (name === 'history') loadHistory();
 }
 
-// ── Photo preview ─────────────────────────────────────────────
-function previewPhoto(prefix) {
-  const url = document.getElementById(prefix + '-photo').value.trim();
+// ── Photo upload via ImgBB ────────────────────────────────────
+const IMGBB_KEY = '287e19f76b0f1adc9867b8a0e5e9b0a1';
+
+async function uploadPhoto(prefix, input) {
+  const file = input.files[0];
+  if (!file) return;
   const box = document.getElementById(prefix + '-photo-box');
-  if (!url) {
-    box.innerHTML = '<div class="photo-placeholder">🍱</div><div><div class="photo-info-title">Фото не добавлено</div><div class="photo-info-sub">Вставьте ссылку на фото выше</div></div>';
-    return;
+  box.innerHTML = '<div class="photo-placeholder">⏳</div><div><div class="photo-info-title">Загрузка...</div><div class="photo-info-sub">Подождите несколько секунд</div></div>';
+
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      const url = data.data.url;
+      document.getElementById(prefix + '-photo').value = url;
+      box.innerHTML = `<img src="${url}" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0"><div><div class="photo-info-title" style="color:#2d6a4f">✓ Фото загружено</div><div class="photo-info-sub">Выйдет через sendPhoto</div></div>`;
+    } else {
+      throw new Error('ImgBB error');
+    }
+  } catch(e) {
+    box.innerHTML = '<div class="photo-placeholder">❌</div><div><div class="photo-info-title" style="color:#dc3545">Ошибка загрузки</div><div class="photo-info-sub">Попробуйте ещё раз</div></div>';
+    toast('Ошибка загрузки фото');
   }
-  const img = new Image();
-  img.onload = () => {
-    box.innerHTML = `<img src="${url}"><div><div class="photo-info-title" style="color:#2d6a4f">✓ Фото добавлено</div><div class="photo-info-sub">Выйдет через sendPhoto</div></div>`;
-  };
-  img.onerror = () => {
-    box.innerHTML = '<div class="photo-placeholder">❌</div><div><div class="photo-info-title" style="color:#dc3545">Не удалось загрузить</div><div class="photo-info-sub">Проверьте ссылку</div></div>';
-  };
-  img.src = url;
 }
 
 // ── Build post texts ──────────────────────────────────────────
@@ -365,7 +375,10 @@ async function createDay() {
        'd2-kcal','d2-prot','d2-fat','d2-carb','d2-portion','d1-photo','d2-photo'].forEach(id => {
         document.getElementById(id).value = '';
       });
-      previewPhoto('d1'); previewPhoto('d2');
+      ['d1','d2'].forEach(p => {
+        document.getElementById(p+'-photo').value='';
+        document.getElementById(p+'-photo-box').innerHTML='<div class="photo-placeholder">📷</div><div><div class="photo-info-title">Нажмите чтобы выбрать фото</div><div class="photo-info-sub">Из галереи телефона</div></div>';
+      });
       setTimeout(() => {
         document.querySelectorAll('.nav-tab')[1].click();
       }, 1200);
