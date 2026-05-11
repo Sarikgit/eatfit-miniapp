@@ -365,18 +365,23 @@ async function uploadPhoto(prefix, input) {
 function buildDishText(name, type, kcal, prot, fat, carb, portion) {
   const icon = type === 'protein' ? '🍗' : '🍱';
   const typeStr = type === 'protein' ? '🔥 Высокобелковый' : '⚖️ Баланс';
-  return `${icon} ${name} — 45 000 сўм\n\n${typeStr}\n\n${kcal||'—'} ккал  |  Б ${prot||'—'}  |  Ж ${fat||'—'}  |  У ${carb||'—'}\n\n🍱 Порция: ~${portion||'450–500'} г\n\n⏰ Етказиш: 10:00 – 12:00\n📥 Заказ: 09:00 гача\n\n📩 Буюртма: @eat_fit_uz\n#eatfit_обед`;
+  return `${icon} ${name} — 45 000 сум\n\n${typeStr}\n${kcal||'—'} ккал  |  Б ${prot||'—'}  |  Ж ${fat||'—'}  |  У ${carb||'—'}\n\n🍱 Порция: ~${portion||'450–500'} г\n⏰ Доставка: 10:00 – 12:00  📥 Заказ до 09:00\n\n📩 Заказ: @eat_fit_uz`;
 }
 
 function buildOpenText(delivDate) {
   const d = new Date(delivDate);
   const days = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const daysUz = ['yakshanba','dushanba','seshanba','chorshanba','payshanba','juma','shanba'];
   const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-  return `📢 Приём заказов открыт!\n\nПринимаем заказы на ${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]}).\n\n⏰ Доставка: 10:00 – 12:00\n📥 Заказ принимается до 09:00\n\nМеню уже выше — выбирай и пиши! 👆\n\n📩 Буюртма: @eat_fit_uz\n#eatfit_обед`;
+  const monthsUz = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'];
+  const day = d.getDate();
+  const mon = d.getMonth();
+  const dow = d.getDay();
+  return `📢 Приём заказов открыт!\nПринимаем заказы на ${day} ${months[mon]} (${days[dow]})\n⏰ Доставка: 10:00 – 12:00  📥 Заказы принимаются до 09:00\nМеню уже опубликовано выше 👆\n📩 Заказ: @eat_fit_uz  #eatfit_обед\n━━━━━━━━━━━━━━━\n📢 Buyurtmalar ochildi!\n${day}-${monthsUz[mon]} (${daysUz[dow]}) uchun buyurtma qabul qilamiz\n⏰ Yetkazib berish: 10:00 – 12:00  📥 Buyurtma qabuli: 09:00 gacha\nMenyu tepada joylangan 👆\n📩 Buyurtma: @eat_fit_uz`;
 }
 
 function buildRemindText() {
-  return `⏰ Последний шанс!\n\nПриём заказов закрывается в 09:00.\n\nУспей оформить — напиши прямо сейчас.\n\n📩 @eat_fit_uz\n#eatfit_обед`;
+  return `⏰ Последний шанс!\nПриём заказов закрывается в 09:00.\nУспей оформить заказ 👇\n📩 @eat_fit_uz  #eatfit_обед\n━━━━━━━━━━━━━━━\n⏰ Oxirgi imkoniyat!\nBuyurtmalar 09:00 da yopiladi.\nBuyurtma berishga ulgurib qoling 👇\n📩 @eat_fit_uz`;
 }
 
 // ── Create day ────────────────────────────────────────────────
