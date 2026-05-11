@@ -279,13 +279,13 @@ function showTab(name) {
 // ── Dish history ──────────────────────────────────────────────
 const HISTORY_KEY = 'eatfit_dish_history';
 
-function loadHistory() {
+function loadDishHistory() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
   catch { return []; }
 }
 
 function saveToHistory(dish) {
-  let history = loadHistory();
+  let history = loadDishHistory();
   // Remove duplicate by name
   history = history.filter(d => d.name !== dish.name);
   // Add to front
@@ -296,7 +296,7 @@ function saveToHistory(dish) {
 }
 
 function renderHistory() {
-  const history = loadHistory();
+  const history = loadDishHistory();
   const block = document.getElementById('dish-history-block');
   const list = document.getElementById('dish-history-list');
   if (!history.length) { block.style.display = 'none'; return; }
@@ -316,7 +316,7 @@ function renderHistory() {
 }
 
 function fillFromHistory(idx, prefix) {
-  const history = loadHistory();
+  const history = loadDishHistory();
   const d = history[idx];
   if (!d) return;
   document.getElementById(`d${prefix}-name`).value = d.name;
