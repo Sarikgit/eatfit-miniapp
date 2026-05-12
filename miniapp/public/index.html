@@ -152,6 +152,8 @@
 <nav class="nav">
   <button class="nav-tab active" onclick="showTab('plan')">📅 Посты</button>
   <button class="nav-tab" onclick="showTab('orders')">📋 Заказы</button>
+  <button class="nav-tab" onclick="showTab('clients')">👥 Клиенты</button>
+  <button class="nav-tab" onclick="showTab('clients')">👥 Клиенты</button>
   <button class="nav-tab" onclick="showTab('kitchen')">🍳 Кухня</button>
   <button class="nav-tab" onclick="showTab('queue')">🕐 Очередь</button>
   <button class="nav-tab" onclick="showTab('history')">✅ История</button>
@@ -268,6 +270,31 @@
   <div id="orders-list"></div>
 </div>
 
+<!-- ══ PAGE: КЛИЕНТЫ ══ -->
+<div class="page" id="page-clients">
+
+  <!-- Add client form -->
+  <div class="card">
+    <div class="card-title">➕ Добавить рационного клиента</div>
+    <div class="field"><label>Имя клиента</label><input type="text" id="cl-name" placeholder="Иванов Иван"></div>
+    <div class="row2">
+      <div class="field"><label>Ккал в день</label><input type="number" id="cl-kcal" placeholder="1500"></div>
+      <div class="field"><label>Цена/день (сум)</label><input type="number" id="cl-price" placeholder="45000"></div>
+    </div>
+    <div class="field"><label>Комментарий для кухни</label><input type="text" id="cl-comment" placeholder="Без лука, аллергия на курицу..."></div>
+    <div class="field"><label>Статус</label>
+      <select id="cl-status">
+        <option value="активен">✅ Активен</option>
+        <option value="пауза">⏸ Пауза</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="addRationClient()">✅ Добавить клиента</button>
+  </div>
+
+  <!-- Clients list -->
+  <div id="clients-list"></div>
+</div>
+
 <!-- ══ PAGE: КУХНЯ ══ -->
 <div class="page" id="page-kitchen">
   <div class="card">
@@ -334,6 +361,7 @@ function showTab(name) {
   if (name === 'history') loadHistory();
   if (name === 'orders') loadOrdersList();
   if (name === 'kitchen') loadKitchen();
+  if (name === 'clients') loadClientsList();
 }
 
 // ── Qty ───────────────────────────────────────────────────────
@@ -452,12 +480,10 @@ async function loadKitchen() {
 
   try {
     // Load ration clients from Sheets + today's orders
-    const [rationRes, ordersRes] = await Promise.all([
-      fetch('/api/ration-clients'),
-      fetch(`/api/orders?date=${date}`)
+    const [rationClients, orders] = await Promise.all([
+      loadRationClients().then(cls => cls.filter(c => c.status === 'активен')),
+      fetch(`/api/orders?date=${date}`).then(r => r.json())
     ]);
-    const rationClients = await rationRes.json();
-    const orders = await ordersRes.json();
 
     kitchenData = { ration: rationClients, orders };
 
@@ -650,6 +676,127 @@ async function uploadPhoto(prefix, input) {
   } catch(e) {
     box.innerHTML = `<div class="photo-placeholder">❌</div><div><div class="photo-info-title" style="color:var(--red)">Ошибка: ${e.message}</div></div>`;
   }
+}
+
+// ── RATION CLIENTS ───────────────────────────────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxS1Yji6oK3nA8QjUvnzmJNKloAeBVQIe_Fqhn9awced7Y_1rIQXuQPitsO9fYGsiF_/exec';
+const GK = 'AIzaSyAIh46apdjvI6TevF13Lh4XbqdySnVE5r4';
+const SID = '1ZyWv33sQC8sK5MpqE3rDVdvCTzNL6Azf6xy6UYe8FBw';
+
+async function sheetsGet(range) {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SID}/values/${encodeURIComponent(range)}?key=${GK}`);
+  const data = await res.json();
+  return data.values || [];
+}
+
+async function sheetsWrite(sheet, row) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ sheet, row })
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Ошибка записи');
+  return data;
+}
+
+async function sheetsUpdate(range, values) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${GK}`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error('Sheets update error');
+  return res.json();
+}
+
+async function loadRationClients() {
+  const rows = await sheetsGet('рационы!A2:E100');
+  return rows.map((r, i) => ({
+    row: i + 2,
+    name: r[0] || '',
+    kcal: r[1] || '',
+    comment: r[2] || '',
+    status: r[3] || 'активен',
+    price: r[4] || ''
+  })).filter(c => c.name);
+}
+
+async function addRationClient() {
+  const name    = document.getElementById('cl-name').value.trim();
+  const kcal    = document.getElementById('cl-kcal').value.trim();
+  const price   = document.getElementById('cl-price').value.trim();
+  const comment = document.getElementById('cl-comment').value.trim();
+  const status  = document.getElementById('cl-status').value;
+
+  if (!name || !kcal) { toast('Введите имя и ккал ⚠️'); return; }
+
+  try {
+    await sheetsWrite('рационы', [name, kcal, comment, status, price]);
+    toast('✅ Клиент добавлен!');
+    document.getElementById('cl-name').value = '';
+    document.getElementById('cl-kcal').value = '';
+    document.getElementById('cl-price').value = '';
+    document.getElementById('cl-comment').value = '';
+    loadClientsList();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+async function loadClientsList() {
+  const el = document.getElementById('clients-list');
+  if (!el) return;
+  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
+  try {
+    const clients = await loadRationClients();
+    if (!clients.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет рационных клиентов</div></div>';
+      return;
+    }
+    el.innerHTML = clients.map(c => `
+      <div class="order-item" id="cli-${c.row}">
+        <div class="order-header">
+          <div style="flex:1">
+            <div class="order-name">${c.name}</div>
+            <div class="order-dish">${c.kcal} ккал/день ${c.price ? '· ' + Number(c.price).toLocaleString('ru') + ' сум' : ''}</div>
+          </div>
+          <span class="status-badge ${c.status === 'активен' ? 'st-done' : 'st-cooking'}">${c.status === 'активен' ? '✅ Активен' : '⏸ Пауза'}</span>
+        </div>
+        <div class="order-body">
+          ${c.comment ? `<div class="order-note">⚠️ ${c.comment}</div>` : ''}
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="editClient(${c.row}, '${c.name.replace(/'/g,"\'")}', '${c.kcal}', '${c.comment.replace(/'/g,"\'")}', '${c.status}', '${c.price}')">✏️ Изменить</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleClientStatus(${c.row}, '${c.status}')">${c.status === 'активен' ? '⏸ Пауза' : '▶️ Активировать'}</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-text">Ошибка: ${e.message}</div></div>`;
+  }
+}
+
+async function toggleClientStatus(row, currentStatus) {
+  const newStatus = currentStatus === 'активен' ? 'пауза' : 'активен';
+  try {
+    await sheetsUpdate(`рационы!D${row}`, [[newStatus]]);
+    toast('Статус обновлён');
+    loadClientsList();
+  } catch(e) {
+    toast('Ошибка: ' + e.message);
+  }
+}
+
+function editClient(row, name, kcal, comment, status, price) {
+  document.getElementById('cl-name').value = name;
+  document.getElementById('cl-kcal').value = kcal;
+  document.getElementById('cl-comment').value = comment;
+  document.getElementById('cl-status').value = status;
+  document.getElementById('cl-price').value = price;
+  // scroll to form
+  document.querySelector('#page-clients .card').scrollIntoView({ behavior: 'smooth' });
+  toast('Отредактируй и нажми "Добавить" — данные обновятся');
 }
 
 // ── POST TEXTS ────────────────────────────────────────────────
