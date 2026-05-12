@@ -1,751 +1,316 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>EAT & FIT</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  :root {
-    --green: #2d6a4f;
-    --green-light: #d8f3dc;
-    --green-text: #1b4332;
-    --orange: #f4a261;
-    --orange-light: #fff3e0;
-    --orange-text: #7c4700;
-    --red: #e63946;
-    --red-light: #fff0f0;
-    --gray: #f8f9fa;
-    --border: #e9ecef;
-    --text: #212529;
-    --muted: #6c757d;
-    --radius: 12px;
-    --radius-sm: 8px;
+const express = require("express");
+const cron = require("node-cron");
+const fetch = require("node-fetch");
+const FormData = require("form-data");
+const path = require("path");
+const fs = require("fs");
+
+const app = express();
+app.use(express.json({ limit: "20mb" }));
+app.use(express.static(path.join(__dirname, "../miniapp/public")));
+
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHANNEL_ID = process.env.CHANNEL_ID;
+const KITCHEN_GROUP_ID = process.env.KITCHEN_GROUP_ID || "-5025106622";
+const PORT = process.env.PORT || 3000;
+const DB_FILE = path.join(__dirname, "posts.json");
+const ORDERS_FILE = path.join(__dirname, "orders.json");
+
+// ── Sheets config ─────────────────────────────────────────────
+const SHEETS_KEY = process.env.SHEETS_KEY || "AIzaSyAIh46apdjvI6TevF13Lh4XbqdySnVE5r4";
+const SHEET_ID   = process.env.SHEET_ID   || "1ZyWv33sQC8sK5MpqE3rDVdvCTzNL6Azf6xy6UYe8FBw";
+
+// ── DB helpers ────────────────────────────────────────────────
+function loadPosts() {
+  if (!fs.existsSync(DB_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(DB_FILE, "utf8")); }
+  catch { return []; }
+}
+function savePosts(posts) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(posts, null, 2));
+}
+
+function loadOrders() {
+  if (!fs.existsSync(ORDERS_FILE)) return [];
+  try { return JSON.parse(fs.readFileSync(ORDERS_FILE, "utf8")); }
+  catch { return []; }
+}
+function saveOrders(orders) {
+  fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
+}
+
+// ── Telegram helpers ──────────────────────────────────────────
+async function sendTelegramPhoto(chatId, photoUrl, caption) {
+  const imgRes = await fetch(photoUrl);
+  if (!imgRes.ok) throw new Error("Не удалось загрузить фото");
+  const imgBuffer = await imgRes.buffer();
+  const contentType = imgRes.headers.get("content-type") || "image/jpeg";
+  const ext = contentType.includes("png") ? "png" : "jpg";
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append("caption", caption);
+  form.append("parse_mode", "HTML");
+  form.append("photo", imgBuffer, { filename: `photo.${ext}`, contentType });
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+    method: "POST", body: form, headers: form.getHeaders(),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.description);
+  return data;
+}
+
+async function sendTelegramMessage(chatId, text) {
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.description);
+  return data;
+}
+
+async function publishPost(post) {
+  if (post.photo_url && post.photo_url.trim()) {
+    return await sendTelegramPhoto(CHANNEL_ID, post.photo_url.trim(), post.text);
+  } else {
+    return await sendTelegramMessage(CHANNEL_ID, post.text);
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray); color: var(--text); font-size: 15px; min-height: 100vh; }
+}
 
-  /* Nav */
-  .nav { display: flex; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; overflow-x: auto; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav-tab { flex: none; padding: 13px 14px; text-align: center; font-size: 13px; font-weight: 500; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
-  .nav-tab.active { color: var(--green); border-bottom-color: var(--green); }
-
-  /* Pages */
-  .page { display: none; padding: 14px; max-width: 500px; margin: 0 auto; }
-  .page.active { display: block; }
-
-  /* Cards */
-  .card { background: #fff; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; border: 1px solid var(--border); }
-  .card-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 12px; }
-
-  /* Form */
-  .field { margin-bottom: 12px; }
-  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
-  .field input, .field select, .field textarea {
-    width: 100%; padding: 11px 13px; font-size: 15px;
-    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-    background: #fff; color: var(--text); font-family: inherit;
-    outline: none; -webkit-appearance: none; appearance: none;
+// ── Sheets: load ration clients ───────────────────────────────
+async function loadRationClients() {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/%D0%BA%D0%BB%D0%B8%D0%B5%D0%BD%D1%82%D1%8B!A2:G300?key=${SHEETS_KEY}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const rows = data.values || [];
+    return rows
+      .map(r => ({
+        name:    r[0] || "",
+        addr:    r[1] || "",
+        phone:   r[2] || "",
+        status:  r[3] || "",
+        notes:   r[4] || "",
+        price:   r[5] || "10000",
+        kitchen: r[6] || ""   // колонка G — комментарий для кухни
+      }))
+      .filter(c => c.name && c.status === "Принято");
+  } catch(e) {
+    console.error("Sheets error:", e.message);
+    return [];
   }
-  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--green); }
-  .field textarea { resize: none; min-height: 70px; line-height: 1.5; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+}
 
-  /* Buttons */
-  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; font-size: 15px; font-weight: 600; border-radius: var(--radius-sm); border: none; cursor: pointer; font-family: inherit; transition: opacity .15s; }
-  .btn:active { opacity: .8; }
-  .btn-primary { background: var(--green); color: #fff; }
-  .btn-orange { background: var(--orange); color: #fff; }
-  .btn-secondary { background: var(--gray); color: var(--text); border: 1px solid var(--border); }
-  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #ffcdd2; }
-  .btn-sm { padding: 7px 12px; font-size: 13px; width: auto; border-radius: 8px; }
+// ── Cron: auto-publish posts ──────────────────────────────────
+cron.schedule("* * * * *", async () => {
+  const posts = loadPosts();
+  const now = new Date();
+  // UTC+5 Tashkent
+  const tashkent = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+  const nowStr = tashkent.toISOString().slice(0, 16);
+  let changed = false;
 
-  /* Photo */
-  .photo-box { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 13px; display: flex; align-items: center; gap: 12px; background: var(--gray); cursor: pointer; }
-  .photo-box img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
-  .photo-placeholder { width: 52px; height: 52px; border-radius: 8px; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-  .photo-info-title { font-size: 13px; font-weight: 500; }
-  .photo-info-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  /* Schedule strip */
-  .schedule-strip { display: flex; margin-bottom: 14px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
-  .sched-item { flex: 1; padding: 9px 6px; text-align: center; background: #fff; border-right: 1px solid var(--border); }
-  .sched-item:last-child { border-right: none; }
-  .sched-time { font-size: 13px; font-weight: 700; color: var(--green); }
-  .sched-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
-
-  /* Post item */
-  .post-item { background: #fff; border-radius: var(--radius); margin-bottom: 10px; border: 1px solid var(--border); overflow: hidden; }
-  .post-item-header { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--gray); border-bottom: 1px solid var(--border); }
-  .post-time { font-size: 13px; font-weight: 700; color: var(--green); min-width: 44px; }
-  .post-name { font-size: 13px; font-weight: 500; flex: 1; }
-  .post-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
-  .tag-dish { background: var(--orange-light); color: var(--orange-text); }
-  .tag-auto { background: var(--green-light); color: var(--green-text); }
-  .post-item-body { padding: 12px 13px; }
-  .post-text-preview { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: var(--text); max-height: 100px; overflow: hidden; position: relative; }
-  .post-text-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: linear-gradient(transparent, #fff); }
-  .post-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
-  .badge-ready { background: var(--green-light); color: var(--green-text); }
-  .badge-posted { background: #e3f2fd; color: #0d47a1; }
-  .badge-error { background: var(--red-light); color: var(--red); }
-  .badge-photo { background: var(--orange-light); color: var(--orange-text); }
-  .post-actions { display: flex; gap: 8px; margin-top: 10px; }
-
-  /* Order item */
-  .order-item { background: #fff; border-radius: var(--radius); margin-bottom: 8px; border: 1px solid var(--border); overflow: hidden; }
-  .order-header { display: flex; align-items: center; gap: 10px; padding: 11px 13px; }
-  .order-name { font-size: 14px; font-weight: 700; flex: 1; }
-  .order-dish { font-size: 13px; color: var(--green); font-weight: 600; }
-  .order-body { padding: 0 13px 11px; }
-  .order-meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
-  .order-note { font-size: 12px; color: var(--orange-text); background: var(--orange-light); padding: 4px 8px; border-radius: 6px; margin-top: 6px; display: inline-block; }
-
-  /* Status badge */
-  .status-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
-  .st-new { background: #e3f2fd; color: #1565c0; }
-  .st-cooking { background: var(--orange-light); color: var(--orange-text); }
-  .st-done { background: var(--green-light); color: var(--green-text); }
-  .st-delivered { background: #f3e5f5; color: #6a1b9a; }
-
-  /* Kitchen list */
-  .kitchen-section { margin-bottom: 16px; }
-  .kitchen-section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
-  .ration-item { background: #fff; border-radius: var(--radius-sm); padding: 11px 13px; margin-bottom: 7px; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
-  .ration-num { font-size: 13px; font-weight: 700; color: var(--muted); min-width: 22px; }
-  .ration-body { flex: 1; }
-  .ration-name { font-size: 14px; font-weight: 600; }
-  .ration-kcal { font-size: 13px; color: var(--green); font-weight: 700; }
-  .ration-note { font-size: 12px; color: var(--red); background: var(--red-light); padding: 3px 8px; border-radius: 6px; margin-top: 5px; display: inline-block; }
-
-  /* Summary box */
-  .summary-box { background: var(--green-light); border: 1px solid #b7e4c7; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; }
-  .summary-box .summary-title { font-size: 13px; font-weight: 700; color: var(--green-text); margin-bottom: 8px; }
-  .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .summary-label { font-size: 13px; color: var(--green-text); }
-  .summary-val { font-size: 15px; font-weight: 800; color: var(--green); }
-
-  /* Dot */
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
-  .dot-green { background: #40c057; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-
-  /* Toast */
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #212529; color: #fff; padding: 11px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 999; white-space: nowrap; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-
-  /* Empty */
-  .empty { text-align: center; padding: 40px 16px; color: var(--muted); }
-  .empty-icon { font-size: 36px; margin-bottom: 10px; }
-  .empty-text { font-size: 14px; }
-
-  /* Qty input */
-  .qty-row { display: flex; align-items: center; gap: 10px; }
-  .qty-btn { width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--gray); font-size: 20px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .qty-val { font-size: 18px; font-weight: 700; min-width: 30px; text-align: center; }
-</style>
-</head>
-<body>
-
-<nav class="nav">
-  <button class="nav-tab active" onclick="showTab('plan')">📅 Посты</button>
-  <button class="nav-tab" onclick="showTab('orders')">📋 Заказы</button>
-  <button class="nav-tab" onclick="showTab('kitchen')">🍳 Кухня</button>
-  <button class="nav-tab" onclick="showTab('queue')">🕐 Очередь</button>
-  <button class="nav-tab" onclick="showTab('history')">✅ История</button>
-</nav>
-
-<!-- ══ PAGE: ПЛАН ПОСТОВ ══ -->
-<div class="page active" id="page-plan">
-  <div style="margin:14px 0 4px;font-size:13px;color:var(--muted);font-weight:500">Расписание постов</div>
-  <div class="schedule-strip">
-    <div class="sched-item"><div class="sched-time">15:00</div><div class="sched-label">Сет 1</div></div>
-    <div class="sched-item"><div class="sched-time">15:05</div><div class="sched-label">Сет 2</div></div>
-    <div class="sched-item"><div class="sched-time">17:00</div><div class="sched-label">Заказы</div></div>
-    <div class="sched-item"><div class="sched-time">08:45</div><div class="sched-label">Последний</div></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Дата доставки</div>
-    <div class="field" style="margin:0"><input type="date" id="pub-date"></div>
-  </div>
-
-  <div id="dish-history-block" style="display:none;margin-bottom:10px">
-    <div style="font-size:12px;color:var(--muted);font-weight:500;margin-bottom:7px">📚 Прошлые блюда</div>
-    <div id="dish-history-list" style="display:flex;flex-direction:column;gap:5px"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🍱 Сет 1</div>
-    <div class="field"><label>Название</label><input type="text" id="d1-name" placeholder="Куриные котлеты с гречкой"></div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Тип</label>
-        <select id="d1-type"><option value="balance">⚖️ Баланс</option><option value="protein">🔥 Белковый</option></select>
-      </div>
-      <div class="field" style="margin:0"><label>Порция (г)</label><input type="text" id="d1-portion" placeholder="500–550"></div>
-    </div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Ккал</label><input type="number" id="d1-kcal" placeholder="550"></div>
-      <div class="field" style="margin:0"><label>Белки</label><input type="number" id="d1-prot" placeholder="42"></div>
-    </div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Жиры</label><input type="number" id="d1-fat" placeholder="18"></div>
-      <div class="field" style="margin:0"><label>Углеводы</label><input type="number" id="d1-carb" placeholder="55"></div>
-    </div>
-    <input type="hidden" id="d1-photo">
-    <div id="d1-photo-box" class="photo-box" onclick="document.getElementById('d1-file').click()">
-      <div class="photo-placeholder">📷</div>
-      <div><div class="photo-info-title">Нажми чтобы выбрать фото</div><div class="photo-info-sub">Из галереи</div></div>
-    </div>
-    <input type="file" id="d1-file" accept="image/*" style="display:none" onchange="uploadPhoto('d1', this)">
-  </div>
-
-  <div class="card">
-    <div class="card-title">🍱 Сет 2</div>
-    <div class="field"><label>Название</label><input type="text" id="d2-name" placeholder="Лосось с рисом"></div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Тип</label>
-        <select id="d2-type"><option value="protein">🔥 Белковый</option><option value="balance">⚖️ Баланс</option></select>
-      </div>
-      <div class="field" style="margin:0"><label>Порция (г)</label><input type="text" id="d2-portion" placeholder="450–500"></div>
-    </div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Ккал</label><input type="number" id="d2-kcal" placeholder="480"></div>
-      <div class="field" style="margin:0"><label>Белки</label><input type="number" id="d2-prot" placeholder="48"></div>
-    </div>
-    <div class="row2" style="margin-bottom:12px">
-      <div class="field" style="margin:0"><label>Жиры</label><input type="number" id="d2-fat" placeholder="14"></div>
-      <div class="field" style="margin:0"><label>Углеводы</label><input type="number" id="d2-carb" placeholder="38"></div>
-    </div>
-    <input type="hidden" id="d2-photo">
-    <div id="d2-photo-box" class="photo-box" onclick="document.getElementById('d2-file').click()">
-      <div class="photo-placeholder">📷</div>
-      <div><div class="photo-info-title">Нажми чтобы выбрать фото</div><div class="photo-info-sub">Из галереи</div></div>
-    </div>
-    <input type="file" id="d2-file" accept="image/*" style="display:none" onchange="uploadPhoto('d2', this)">
-  </div>
-
-  <button class="btn btn-primary" onclick="createDay()" style="margin-bottom:32px">
-    📤 Поставить 4 поста в очередь
-  </button>
-</div>
-
-<!-- ══ PAGE: ЗАКАЗЫ ══ -->
-<div class="page" id="page-orders">
-
-  <!-- Add order form -->
-  <div class="card">
-    <div class="card-title">➕ Добавить заказ (обед)</div>
-    <div class="field"><label>Имя клиента</label><input type="text" id="o-name" placeholder="Иванов Иван"></div>
-    <div class="field"><label>Дата доставки</label><input type="date" id="o-date"></div>
-    <div class="field"><label>Блюдо</label>
-      <select id="o-dish">
-        <option value="Сет 1">🍱 Сет 1</option>
-        <option value="Сет 2">🍱 Сет 2</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Количество порций</label>
-      <div class="qty-row">
-        <button class="qty-btn" onclick="changeQty(-1)">−</button>
-        <div class="qty-val" id="qty-val">1</div>
-        <button class="qty-btn" onclick="changeQty(1)">+</button>
-      </div>
-    </div>
-    <div class="field"><label>Комментарий (необ.)</label><input type="text" id="o-note" placeholder="Без лука, острое и т.д."></div>
-    <div class="field"><label>Телефон (необ.)</label><input type="tel" id="o-phone" placeholder="+998 90 000 00 00"></div>
-    <button class="btn btn-primary" onclick="addOrder()">✅ Добавить заказ</button>
-  </div>
-
-  <!-- Filter -->
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-    <div class="field" style="margin:0;flex:1"><input type="date" id="o-filter-date" onchange="loadOrdersList()"></div>
-    <button class="btn btn-secondary btn-sm" onclick="clearOrderFilter()">Все</button>
-  </div>
-
-  <div id="orders-list"></div>
-</div>
-
-<!-- ══ PAGE: КУХНЯ ══ -->
-<div class="page" id="page-kitchen">
-  <div class="card">
-    <div class="card-title">📅 Дата кухонного листа</div>
-    <div class="field" style="margin:0"><input type="date" id="k-date" onchange="loadKitchen()"></div>
-  </div>
-
-  <div id="kitchen-content">
-    <div class="empty"><div class="empty-icon">👆</div><div class="empty-text">Выберите дату</div></div>
-  </div>
-
-  <div id="kitchen-send-btn" style="display:none;margin-bottom:32px">
-    <button class="btn btn-orange" onclick="sendToKitchen()">
-      📨 Отправить повару в EAT&FIT TEAM
-    </button>
-  </div>
-</div>
-
-<!-- ══ PAGE: ОЧЕРЕДЬ ══ -->
-<div class="page" id="page-queue">
-  <div style="padding:14px 0 4px;display:flex;align-items:center;gap:8px">
-    <span class="dot dot-green"></span>
-    <span style="font-size:13px;color:var(--muted)">Планировщик активен</span>
-  </div>
-  <div id="queue-list" style="margin-top:8px"></div>
-</div>
-
-<!-- ══ PAGE: ИСТОРИЯ ══ -->
-<div class="page" id="page-history">
-  <div style="padding:14px 0 8px;font-size:16px;font-weight:700">История публикаций</div>
-  <div id="history-list"></div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
-
-let currentQty = 1;
-
-// ── Init ──────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Set dates
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  document.getElementById('pub-date').value = tomorrow;
-  document.getElementById('o-date').value = tomorrow;
-  document.getElementById('o-filter-date').value = today;
-  document.getElementById('k-date').value = today;
-
-  renderDishHistory();
-  loadOrdersList();
-  loadKitchen();
+  for (const post of posts) {
+    if (post.status !== "ready") continue;
+    const scheduleStr = `${post.publish_date}T${post.publish_time}`;
+    if (scheduleStr > nowStr) continue;
+    try {
+      await publishPost(post);
+      post.status = "posted";
+      post.posted_at = now.toISOString();
+      post.error = "";
+      console.log(`[OK] Published: ${post.label}`);
+    } catch (err) {
+      post.status = "error";
+      post.error = err.message;
+      console.error(`[ERR] ${post.label}:`, err.message);
+    }
+    changed = true;
+  }
+  if (changed) savePosts(posts);
 });
 
-// ── Tabs ──────────────────────────────────────────────────────
-function showTab(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
-  if (name === 'queue') loadQueue();
-  if (name === 'history') loadHistory();
-  if (name === 'orders') loadOrdersList();
-  if (name === 'kitchen') loadKitchen();
-}
+// ══════════════════════════════════════════════════════════════
+// POSTS API (existing)
+// ══════════════════════════════════════════════════════════════
+app.get("/api/posts", (req, res) => res.json(loadPosts()));
 
-// ── Qty ───────────────────────────────────────────────────────
-function changeQty(d) {
-  currentQty = Math.max(1, currentQty + d);
-  document.getElementById('qty-val').textContent = currentQty;
-}
-
-// ── ORDERS ────────────────────────────────────────────────────
-async function addOrder() {
-  const name  = document.getElementById('o-name').value.trim();
-  const date  = document.getElementById('o-date').value;
-  const dish  = document.getElementById('o-dish').value;
-  const note  = document.getElementById('o-note').value.trim();
-  const phone = document.getElementById('o-phone').value.trim();
-
-  if (!name || !date) { toast('Укажите имя и дату ⚠️'); return; }
-
-  const r = await fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_name: name, date, dish, qty: currentQty, note, phone, status: 'new' })
-  });
-  const data = await r.json();
-  if (data.ok) {
-    toast('✅ Заказ добавлен!');
-    document.getElementById('o-name').value = '';
-    document.getElementById('o-note').value = '';
-    document.getElementById('o-phone').value = '';
-    currentQty = 1;
-    document.getElementById('qty-val').textContent = '1';
-    loadOrdersList();
-  } else {
-    toast('Ошибка: ' + data.error);
+app.post("/api/posts", (req, res) => {
+  const incoming = req.body;
+  if (!Array.isArray(incoming)) return res.status(400).json({ error: "Expected array" });
+  const posts = loadPosts();
+  for (const p of incoming) {
+    if (!p.id) p.id = `tg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    p.status = p.status || "ready";
+    p.posted_at = "";
+    p.error = "";
+    posts.push(p);
   }
-}
+  savePosts(posts);
+  res.json({ ok: true, count: incoming.length });
+});
 
-async function loadOrdersList() {
-  const dateFilter = document.getElementById('o-filter-date').value;
-  const url = dateFilter ? `/api/orders?date=${dateFilter}` : '/api/orders';
-  const el = document.getElementById('orders-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
+app.post("/api/posts/:id/publish", async (req, res) => {
+  const posts = loadPosts();
+  const post = posts.find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+  if (post.status === "posted") return res.status(400).json({ error: "Already posted" });
   try {
-    const r = await fetch(url);
-    const orders = await r.json();
-    if (!orders.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет заказов</div></div>';
-      return;
-    }
-    el.innerHTML = orders.sort((a,b) => b.created_at.localeCompare(a.created_at)).map(o => renderOrderItem(o)).join('');
-  } catch(e) {
-    el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>';
+    await publishPost(post);
+    post.status = "posted";
+    post.posted_at = new Date().toISOString();
+    post.error = "";
+    savePosts(posts);
+    res.json({ ok: true });
+  } catch (err) {
+    post.status = "error";
+    post.error = err.message;
+    savePosts(posts);
+    res.status(500).json({ error: err.message });
   }
-}
+});
 
-function clearOrderFilter() {
-  document.getElementById('o-filter-date').value = '';
-  loadOrdersList();
-}
+app.delete("/api/posts/:id", (req, res) => {
+  let posts = loadPosts();
+  posts = posts.filter(p => p.id !== req.params.id);
+  savePosts(posts);
+  res.json({ ok: true });
+});
 
-function renderOrderItem(o) {
-  const statusMap = { new:'🆕 Новый', cooking:'👨‍🍳 Готовится', done:'✅ Готово', delivered:'🚗 Доставлен' };
-  const statusCls = { new:'st-new', cooking:'st-cooking', done:'st-done', delivered:'st-delivered' };
-  return `<div class="order-item" id="oi-${o.id}">
-    <div class="order-header">
-      <div class="order-body" style="flex:1">
-        <div class="order-name">${o.client_name}</div>
-        <div class="order-dish">${o.dish} × ${o.qty || 1}</div>
-      </div>
-      <span class="status-badge ${statusCls[o.status]||'st-new'}">${statusMap[o.status]||o.status}</span>
-    </div>
-    <div class="order-body">
-      <div class="order-meta">
-        <span>📅 ${o.date}</span>
-        ${o.phone ? `<span>📞 ${o.phone}</span>` : ''}
-      </div>
-      ${o.note ? `<div class="order-note">⚠️ ${o.note}</div>` : ''}
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" onclick="updateOrderStatus('${o.id}','cooking')">👨‍🍳 Готовится</button>
-        <button class="btn btn-primary btn-sm" onclick="updateOrderStatus('${o.id}','done')">✅ Готово</button>
-        <button class="btn btn-secondary btn-sm" onclick="updateOrderStatus('${o.id}','delivered')">🚗 Доставлен</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
-      </div>
-    </div>
-  </div>`;
-}
+app.patch("/api/posts/:id", (req, res) => {
+  const posts = loadPosts();
+  const post = posts.find(p => p.id === req.params.id);
+  if (!post) return res.status(404).json({ error: "Not found" });
+  Object.assign(post, req.body);
+  savePosts(posts);
+  res.json({ ok: true, post });
+});
 
-async function updateOrderStatus(id, status) {
-  await fetch(`/api/orders/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
-  });
-  loadOrdersList();
-  toast('Статус обновлён');
-}
+// ══════════════════════════════════════════════════════════════
+// ORDERS API (new)
+// ══════════════════════════════════════════════════════════════
 
-async function deleteOrder(id) {
-  if (!confirm('Удалить заказ?')) return;
-  await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-  loadOrdersList();
-  toast('Удалено');
-}
+// GET all orders (optionally filter by date)
+app.get("/api/orders", (req, res) => {
+  let orders = loadOrders();
+  if (req.query.date) {
+    orders = orders.filter(o => o.date === req.query.date);
+  }
+  res.json(orders);
+});
 
-// ── KITCHEN ───────────────────────────────────────────────────
-let kitchenData = { ration: [], orders: [] };
+// POST add order
+app.post("/api/orders", (req, res) => {
+  const orders = loadOrders();
+  const o = req.body;
+  o.id = `ord_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  o.created_at = new Date().toISOString();
+  o.status = o.status || "new";
+  orders.push(o);
+  saveOrders(orders);
+  res.json({ ok: true, order: o });
+});
 
-async function loadKitchen() {
-  const date = document.getElementById('k-date').value;
-  if (!date) return;
+// PATCH update order status
+app.patch("/api/orders/:id", (req, res) => {
+  const orders = loadOrders();
+  const o = orders.find(x => x.id === req.params.id);
+  if (!o) return res.status(404).json({ error: "Not found" });
+  Object.assign(o, req.body);
+  saveOrders(orders);
+  res.json({ ok: true, order: o });
+});
 
-  const el = document.getElementById('kitchen-content');
-  const sendBtn = document.getElementById('kitchen-send-btn');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Загрузка...</div></div>';
-  sendBtn.style.display = 'none';
+// DELETE order
+app.delete("/api/orders/:id", (req, res) => {
+  let orders = loadOrders();
+  orders = orders.filter(x => x.id !== req.params.id);
+  saveOrders(orders);
+  res.json({ ok: true });
+});
 
+// GET ration clients from Sheets
+app.get("/api/ration-clients", async (req, res) => {
   try {
-    // Load ration clients from Sheets + today's orders
-    const [rationRes, ordersRes] = await Promise.all([
-      fetch('/api/ration-clients'),
-      fetch(`/api/orders?date=${date}`)
-    ]);
-    const rationClients = await rationRes.json();
-    const orders = await ordersRes.json();
-
-    kitchenData = { ration: rationClients, orders };
-
-    let html = '';
-
-    // ── Рационы ──
-    if (rationClients.length > 0) {
-      const totalKcal = rationClients.reduce((s,c) => s + (parseInt(c.kcal)||0), 0);
-      html += `<div class="kitchen-section">
-        <div class="kitchen-section-title">📋 Рационы — ${rationClients.length} чел.</div>`;
-
-      rationClients.forEach((c, i) => {
-        html += `<div class="ration-item">
-          <div class="ration-num">${i+1}</div>
-          <div class="ration-body">
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div class="ration-name">${c.name}</div>
-              <div class="ration-kcal">${c.kcal||'?'} ккал</div>
-            </div>
-            ${c.kitchen ? `<div class="ration-note">⚠️ ${c.kitchen}</div>` : ''}
-          </div>
-        </div>`;
-      });
-
-      html += `<div class="summary-box">
-        <div class="summary-title">Итого рационы</div>
-        <div class="summary-row"><span class="summary-label">Человек</span><span class="summary-val">${rationClients.length}</span></div>
-        <div class="summary-row"><span class="summary-label">Общий ккал</span><span class="summary-val">${totalKcal}</span></div>
-      </div></div>`;
-    }
-
-    // ── Обеды ──
-    if (orders.length > 0) {
-      // Count by dish
-      const counts = {};
-      orders.forEach(o => {
-        counts[o.dish] = (counts[o.dish]||0) + (parseInt(o.qty)||1);
-      });
-
-      html += `<div class="kitchen-section">
-        <div class="kitchen-section-title">🍱 Обеды — ${orders.length} заказов</div>`;
-
-      // Summary
-      html += `<div class="summary-box">
-        <div class="summary-title">Итого порций</div>`;
-      Object.entries(counts).forEach(([dish, qty]) => {
-        html += `<div class="summary-row"><span class="summary-label">${dish}</span><span class="summary-val">${qty} порц.</span></div>`;
-      });
-      html += `</div>`;
-
-      // Individual orders
-      orders.forEach((o, i) => {
-        html += `<div class="ration-item">
-          <div class="ration-num">${i+1}</div>
-          <div class="ration-body">
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div class="ration-name">${o.client_name}</div>
-              <div class="ration-kcal">${o.dish} × ${o.qty||1}</div>
-            </div>
-            ${o.note ? `<div class="ration-note">⚠️ ${o.note}</div>` : ''}
-          </div>
-        </div>`;
-      });
-      html += `</div>`;
-    }
-
-    if (!rationClients.length && !orders.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет данных на эту дату</div></div>';
-      return;
-    }
-
-    el.innerHTML = html;
-    sendBtn.style.display = 'block';
-
+    const clients = await loadRationClients();
+    res.json(clients);
   } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-text">Ошибка: ${e.message}</div></div>`;
+    res.status(500).json({ error: e.message });
   }
-}
+});
 
-async function sendToKitchen() {
-  const date = document.getElementById('k-date').value;
-  const btn = document.querySelector('#kitchen-send-btn .btn');
-  btn.textContent = '⏳ Отправляю...';
-  btn.disabled = true;
+// POST send kitchen list to group
+app.post("/api/kitchen/send", async (req, res) => {
+  const { date, orders, ration_clients } = req.body;
 
-  try {
-    const r = await fetch('/api/kitchen/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        date,
-        orders: kitchenData.orders,
-        ration_clients: kitchenData.ration
-      })
-    });
-    const data = await r.json();
-    if (data.ok) {
-      toast('✅ Кухонный лист отправлен в EAT&FIT TEAM!');
-    } else {
-      toast('Ошибка: ' + data.error);
-    }
-  } catch(e) {
-    toast('Ошибка: ' + e.message);
-  } finally {
-    btn.textContent = '📨 Отправить повару в EAT&FIT TEAM';
-    btn.disabled = false;
-  }
-}
-
-// ── DISH HISTORY ──────────────────────────────────────────────
-const HISTORY_KEY = 'eatfit_dish_history';
-function loadDishHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-}
-function saveDishToHistory(dish) {
-  let h = loadDishHistory();
-  h = h.filter(d => d.name !== dish.name);
-  h.unshift(dish);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20)));
-}
-function renderDishHistory() {
-  const h = loadDishHistory();
-  const block = document.getElementById('dish-history-block');
-  const list = document.getElementById('dish-history-list');
-  if (!h.length) { block.style.display = 'none'; return; }
-  block.style.display = '';
-  list.innerHTML = h.map((d, i) => `
-    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 12px">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500">${d.name}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${d.kcal} ккал | ${d.type==='protein'?'🔥':'⚖️'}</div>
-      </div>
-      <button style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--green);color:#fff;cursor:pointer" onclick="fillFromHistory(${i},'1')">Сет 1</button>
-      <button style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--gray);cursor:pointer" onclick="fillFromHistory(${i},'2')">Сет 2</button>
-    </div>`).join('');
-}
-function fillFromHistory(idx, prefix) {
-  const d = loadDishHistory()[idx];
-  if (!d) return;
-  ['name','type','kcal','prot','fat','carb','portion'].forEach(f => {
-    const el = document.getElementById(`d${prefix}-${f}`);
-    if (el) el.value = d[f] || '';
-  });
-  toast(`✓ Сет ${prefix}: ${d.name}`);
-}
-
-// ── PHOTO UPLOAD ──────────────────────────────────────────────
-const IMGBB_KEY = '2c809fab10891ae2d68a20d3e5f4350b';
-async function uploadPhoto(prefix, input) {
-  const file = input.files[0];
-  if (!file) return;
-  const box = document.getElementById(prefix + '-photo-box');
-  box.innerHTML = '<div class="photo-placeholder">⏳</div><div><div class="photo-info-title">Загрузка...</div></div>';
-  try {
-    const formData = new FormData();
-    formData.append('image', file);
-    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.success) {
-      const url = data.data.url;
-      document.getElementById(prefix + '-photo').value = url;
-      box.innerHTML = `<img src="${url}"><div><div class="photo-info-title" style="color:var(--green)">✓ Фото загружено</div></div>`;
-    } else throw new Error('ImgBB error');
-  } catch(e) {
-    box.innerHTML = '<div class="photo-placeholder">❌</div><div><div class="photo-info-title" style="color:var(--red)">Ошибка</div></div>';
-  }
-}
-
-// ── POST TEXTS ────────────────────────────────────────────────
-function buildDishText(name, type, kcal, prot, fat, carb, portion) {
-  const icon = type === 'protein' ? '🍗' : '🍱';
-  const typeStr = type === 'protein' ? '🔥 Высокобелковый' : '⚖️ Баланс';
-  return `${icon} ${name} — 45 000 сум\n\n${typeStr}\n${kcal||'—'} ккал  |  Б ${prot||'—'}  |  Ж ${fat||'—'}  |  У ${carb||'—'}\n\n🍱 Порция: ~${portion||'450–500'} г\n⏰ Доставка: 10:00 – 12:00  📥 Заказ до 09:00\n\n📩 Заказ: @eat_fit_uz`;
-}
-function buildOpenText(delivDate) {
-  const d = new Date(delivDate);
-  const days = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  // Format date nicely
+  const d = new Date(date);
   const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-  return `📢 Приём заказов открыт!\nПринимаем заказы на ${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]})\n⏰ Доставка: 10:00 – 12:00  📥 Заказы до 09:00\nМеню выше 👆\n📩 @eat_fit_uz  #eatfit_обед`;
-}
-function buildRemindText() {
-  return `⏰ Последний шанс!\nПриём заказов закрывается в 09:00.\n📩 @eat_fit_uz`;
-}
+  const dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
 
-// ── CREATE DAY ────────────────────────────────────────────────
-async function createDay() {
-  const date = document.getElementById('pub-date').value;
-  const d1name = document.getElementById('d1-name').value.trim();
-  const d2name = document.getElementById('d2-name').value.trim();
-  if (!date || !d1name || !d2name) { toast('Заполните дату и оба блюда ⚠️'); return; }
+  let msg = `🍳 <b>КУХОННЫЙ ЛИСТ — ${dateStr}</b>\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  saveDishToHistory({ name: d1name, type: document.getElementById('d1-type').value, kcal: document.getElementById('d1-kcal').value, prot: document.getElementById('d1-prot').value, fat: document.getElementById('d1-fat').value, carb: document.getElementById('d1-carb').value, portion: document.getElementById('d1-portion').value });
-  saveDishToHistory({ name: d2name, type: document.getElementById('d2-type').value, kcal: document.getElementById('d2-kcal').value, prot: document.getElementById('d2-prot').value, fat: document.getElementById('d2-fat').value, carb: document.getElementById('d2-carb').value, portion: document.getElementById('d2-portion').value });
+  // Ration clients section
+  if (ration_clients && ration_clients.length > 0) {
+    msg += `📋 <b>РАЦИОНЫ (${ration_clients.length} чел.)</b>\n\n`;
+    ration_clients.forEach((c, i) => {
+      msg += `${i+1}. <b>${c.name}</b> — ${c.kcal} ккал`;
+      if (c.kitchen) msg += `\n    ⚠️ ${c.kitchen}`;
+      msg += `\n`;
+    });
 
-  const today = new Date().toISOString().split('T')[0];
-  const nextDay = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    // Total kcal
+    const totalKcal = ration_clients.reduce((s, c) => s + (parseInt(c.kcal) || 0), 0);
+    msg += `\n📊 Итого рационов: ${ration_clients.length} чел. | ${totalKcal} ккал\n`;
+  }
 
-  const posts = [
-    { id: uid(), label: '🍱 Сет 1 — '+d1name, tag:'dish', text: buildDishText(d1name, document.getElementById('d1-type').value, document.getElementById('d1-kcal').value, document.getElementById('d1-prot').value, document.getElementById('d1-fat').value, document.getElementById('d1-carb').value, document.getElementById('d1-portion').value), photo_url: document.getElementById('d1-photo').value.trim(), publish_date: today, publish_time: '15:00', status: 'ready' },
-    { id: uid(), label: '🍱 Сет 2 — '+d2name, tag:'dish', text: buildDishText(d2name, document.getElementById('d2-type').value, document.getElementById('d2-kcal').value, document.getElementById('d2-prot').value, document.getElementById('d2-fat').value, document.getElementById('d2-carb').value, document.getElementById('d2-portion').value), photo_url: document.getElementById('d2-photo').value.trim(), publish_date: today, publish_time: '15:05', status: 'ready' },
-    { id: uid(), label: '📢 Заказы открыты', tag:'auto', text: buildOpenText(date), photo_url: '', publish_date: today, publish_time: '17:00', status: 'ready' },
-    { id: uid(), label: '⏰ Последний шанс', tag:'auto', text: buildRemindText(), photo_url: '', publish_date: nextDay, publish_time: '08:45', status: 'ready' }
-  ];
+  // Lunch orders section
+  if (orders && orders.length > 0) {
+    msg += `\n━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🍱 <b>ОБЕДЫ</b>\n\n`;
+
+    // Count by dish
+    const counts = {};
+    orders.forEach(o => {
+      const key = o.dish;
+      counts[key] = (counts[key] || 0) + parseInt(o.qty || 1);
+    });
+
+    Object.entries(counts).forEach(([dish, qty]) => {
+      msg += `• ${dish} — <b>${qty} порц.</b>\n`;
+    });
+
+    msg += `\n👤 Клиенты:\n`;
+    orders.forEach((o, i) => {
+      msg += `${i+1}. ${o.client_name} — ${o.dish} x${o.qty || 1}`;
+      if (o.note) msg += ` (${o.note})`;
+      msg += `\n`;
+    });
+  }
+
+  if (!ration_clients?.length && !orders?.length) {
+    return res.status(400).json({ error: "Нет данных для отправки" });
+  }
+
+  msg += `\n━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `⏰ Доставка: 10:00 – 12:00`;
 
   try {
-    const r = await fetch('/api/posts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(posts) });
-    const data = await r.json();
-    if (data.ok) {
-      toast('✅ 4 поста добавлены в очередь!');
-      renderDishHistory();
-      setTimeout(() => { document.querySelectorAll('.nav-tab')[3].click(); }, 1200);
-    }
-  } catch(e) { toast('Ошибка: ' + e.message); }
-}
+    await sendTelegramMessage(KITCHEN_GROUP_ID, msg);
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
-// ── QUEUE & HISTORY ───────────────────────────────────────────
-async function loadQueue() {
-  const el = document.getElementById('queue-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const r = await fetch('/api/posts');
-    const posts = await r.json();
-    const queue = posts.filter(p => p.status === 'ready' || p.status === 'draft');
-    if (!queue.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Очередь пустая</div></div>'; return; }
-    el.innerHTML = queue.sort((a,b) => (a.publish_date+a.publish_time).localeCompare(b.publish_date+b.publish_time)).map(p => renderPostItem(p, true)).join('');
-  } catch(e) { el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>'; }
-}
+// ══════════════════════════════════════════════════════════════
+app.get("/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../miniapp/public", "index.html")));
 
-async function loadHistory() {
-  const el = document.getElementById('history-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const r = await fetch('/api/posts');
-    const posts = await r.json();
-    const done = posts.filter(p => p.status === 'posted' || p.status === 'error');
-    if (!done.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет опубликованных</div></div>'; return; }
-    el.innerHTML = done.sort((a,b) => (b.posted_at||'').localeCompare(a.posted_at||'')).map(p => renderPostItem(p, false)).join('');
-  } catch(e) { el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>'; }
-}
-
-function renderPostItem(p, isQueue) {
-  const badgeClass = { ready:'badge-ready', posted:'badge-posted', error:'badge-error' }[p.status] || '';
-  const badgeLabel = { ready:'В очереди', posted:'Опубликован', error:'Ошибка' }[p.status] || p.status;
-  const actions = isQueue ? `<div class="post-actions">
-    <button class="btn btn-secondary btn-sm" onclick="publishNow('${p.id}')">🚀 Сейчас</button>
-    <button class="btn btn-danger btn-sm" onclick="deletePost('${p.id}')">🗑</button>
-  </div>` : '';
-  return `<div class="post-item" id="pitem-${p.id}">
-    <div class="post-item-header">
-      <span class="post-time">${p.publish_time}</span>
-      <span class="post-name">${p.label}</span>
-      <span class="post-tag ${p.tag==='auto'?'tag-auto':'tag-dish'}">${p.tag==='auto'?'авто':'блюдо'}</span>
-    </div>
-    <div class="post-item-body">
-      <div class="post-text-preview">${p.text}</div>
-      <div class="post-meta">
-        <span class="badge ${badgeClass}">${badgeLabel}</span>
-        ${p.photo_url?'<span class="badge badge-photo">📷</span>':''}
-        <span style="font-size:11px;color:var(--muted)">${p.publish_date}</span>
-      </div>
-      ${p.error?`<div style="font-size:12px;color:var(--red);margin-top:6px">⚠️ ${p.error}</div>`:''}
-      ${actions}
-    </div>
-  </div>`;
-}
-
-async function publishNow(id) {
-  const r = await fetch(`/api/posts/${id}/publish`, { method: 'POST' });
-  const data = await r.json();
-  if (data.ok) { toast('✅ Опубликовано!'); loadQueue(); }
-  else toast('Ошибка: ' + data.error);
-}
-
-async function deletePost(id) {
-  if (!confirm('Удалить пост?')) return;
-  await fetch(`/api/posts/${id}`, { method: 'DELETE' });
-  document.getElementById('pitem-'+id)?.remove();
-  toast('Удалено');
-}
-
-// ── UTILS ─────────────────────────────────────────────────────
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-function uid() { return 'tg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
-</script>
-</body>
-</html>
+app.listen(PORT, () => {
+  console.log(`EAT & FIT server on port ${PORT}`);
+  if (!BOT_TOKEN) console.warn("BOT_TOKEN not set!");
+  if (!CHANNEL_ID) console.warn("CHANNEL_ID not set!");
+});
