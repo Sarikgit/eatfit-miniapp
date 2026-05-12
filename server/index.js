@@ -7,7 +7,7 @@ const fs = require("fs");
 
 const app = express();
 app.use(express.json({ limit: "20mb" }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "../miniapp/public")));
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
@@ -16,11 +16,9 @@ const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, "posts.json");
 const ORDERS_FILE = path.join(__dirname, "orders.json");
 
-// ── Sheets config ─────────────────────────────────────────────
 const SHEETS_KEY = process.env.SHEETS_KEY || "AIzaSyAIh46apdjvI6TevF13Lh4XbqdySnVE5r4";
 const SHEET_ID   = process.env.SHEET_ID   || "1ZyWv33sQC8sK5MpqE3rDVdvCTzNL6Azf6xy6UYe8FBw";
 
-// ── DB helpers ────────────────────────────────────────────────
 function loadPosts() {
   if (!fs.existsSync(DB_FILE)) return [];
   try { return JSON.parse(fs.readFileSync(DB_FILE, "utf8")); }
@@ -29,7 +27,6 @@ function loadPosts() {
 function savePosts(posts) {
   fs.writeFileSync(DB_FILE, JSON.stringify(posts, null, 2));
 }
-
 function loadOrders() {
   if (!fs.existsSync(ORDERS_FILE)) return [];
   try { return JSON.parse(fs.readFileSync(ORDERS_FILE, "utf8")); }
@@ -39,7 +36,6 @@ function saveOrders(orders) {
   fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2));
 }
 
-// ── Telegram helpers ──────────────────────────────────────────
 async function sendTelegramPhoto(chatId, photoUrl, caption) {
   const imgRes = await fetch(photoUrl);
   if (!imgRes.ok) throw new Error("Не удалось загрузить фото");
@@ -78,7 +74,6 @@ async function publishPost(post) {
   }
 }
 
-// ── Sheets: load ration clients ───────────────────────────────
 async function loadRationClients() {
   try {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/%D0%BA%D0%BB%D0%B8%D0%B5%D0%BD%D1%82%D1%8B!A2:G300?key=${SHEETS_KEY}`;
@@ -93,7 +88,7 @@ async function loadRationClients() {
         status:  r[3] || "",
         notes:   r[4] || "",
         price:   r[5] || "10000",
-        kitchen: r[6] || ""   // колонка G — комментарий для кухни
+        kitchen: r[6] || ""
       }))
       .filter(c => c.name && c.status === "Принято");
   } catch(e) {
@@ -102,15 +97,12 @@ async function loadRationClients() {
   }
 }
 
-// ── Cron: auto-publish posts ──────────────────────────────────
 cron.schedule("* * * * *", async () => {
   const posts = loadPosts();
   const now = new Date();
-  // UTC+5 Tashkent
   const tashkent = new Date(now.getTime() + 5 * 60 * 60 * 1000);
   const nowStr = tashkent.toISOString().slice(0, 16);
   let changed = false;
-
   for (const post of posts) {
     if (post.status !== "ready") continue;
     const scheduleStr = `${post.publish_date}T${post.publish_time}`;
@@ -131,9 +123,7 @@ cron.schedule("* * * * *", async () => {
   if (changed) savePosts(posts);
 });
 
-// ══════════════════════════════════════════════════════════════
-// POSTS API (existing)
-// ══════════════════════════════════════════════════════════════
+// POSTS API
 app.get("/api/posts", (req, res) => res.json(loadPosts()));
 
 app.post("/api/posts", (req, res) => {
@@ -187,20 +177,13 @@ app.patch("/api/posts/:id", (req, res) => {
   res.json({ ok: true, post });
 });
 
-// ══════════════════════════════════════════════════════════════
-// ORDERS API (new)
-// ══════════════════════════════════════════════════════════════
-
-// GET all orders (optionally filter by date)
+// ORDERS API
 app.get("/api/orders", (req, res) => {
   let orders = loadOrders();
-  if (req.query.date) {
-    orders = orders.filter(o => o.date === req.query.date);
-  }
+  if (req.query.date) orders = orders.filter(o => o.date === req.query.date);
   res.json(orders);
 });
 
-// POST add order
 app.post("/api/orders", (req, res) => {
   const orders = loadOrders();
   const o = req.body;
@@ -212,7 +195,6 @@ app.post("/api/orders", (req, res) => {
   res.json({ ok: true, order: o });
 });
 
-// PATCH update order status
 app.patch("/api/orders/:id", (req, res) => {
   const orders = loadOrders();
   const o = orders.find(x => x.id === req.params.id);
@@ -222,7 +204,6 @@ app.patch("/api/orders/:id", (req, res) => {
   res.json({ ok: true, order: o });
 });
 
-// DELETE order
 app.delete("/api/orders/:id", (req, res) => {
   let orders = loadOrders();
   orders = orders.filter(x => x.id !== req.params.id);
@@ -230,7 +211,6 @@ app.delete("/api/orders/:id", (req, res) => {
   res.json({ ok: true });
 });
 
-// GET ration clients from Sheets
 app.get("/api/ration-clients", async (req, res) => {
   try {
     const clients = await loadRationClients();
@@ -240,19 +220,14 @@ app.get("/api/ration-clients", async (req, res) => {
   }
 });
 
-// POST send kitchen list to group
 app.post("/api/kitchen/send", async (req, res) => {
   const { date, orders, ration_clients } = req.body;
-
-  // Format date nicely
   const d = new Date(date);
   const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
   const dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
 
-  let msg = `🍳 <b>КУХОННЫЙ ЛИСТ — ${dateStr}</b>\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━\n\n`;
+  let msg = `🍳 <b>КУХОННЫЙ ЛИСТ — ${dateStr}</b>\n━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  // Ration clients section
   if (ration_clients && ration_clients.length > 0) {
     msg += `📋 <b>РАЦИОНЫ (${ration_clients.length} чел.)</b>\n\n`;
     ration_clients.forEach((c, i) => {
@@ -260,28 +235,15 @@ app.post("/api/kitchen/send", async (req, res) => {
       if (c.kitchen) msg += `\n    ⚠️ ${c.kitchen}`;
       msg += `\n`;
     });
-
-    // Total kcal
     const totalKcal = ration_clients.reduce((s, c) => s + (parseInt(c.kcal) || 0), 0);
-    msg += `\n📊 Итого рационов: ${ration_clients.length} чел. | ${totalKcal} ккал\n`;
+    msg += `\n📊 Итого: ${ration_clients.length} чел. | ${totalKcal} ккал\n`;
   }
 
-  // Lunch orders section
   if (orders && orders.length > 0) {
-    msg += `\n━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🍱 <b>ОБЕДЫ</b>\n\n`;
-
-    // Count by dish
+    msg += `\n━━━━━━━━━━━━━━━━━━━\n🍱 <b>ОБЕДЫ</b>\n\n`;
     const counts = {};
-    orders.forEach(o => {
-      const key = o.dish;
-      counts[key] = (counts[key] || 0) + parseInt(o.qty || 1);
-    });
-
-    Object.entries(counts).forEach(([dish, qty]) => {
-      msg += `• ${dish} — <b>${qty} порц.</b>\n`;
-    });
-
+    orders.forEach(o => { counts[o.dish] = (counts[o.dish] || 0) + parseInt(o.qty || 1); });
+    Object.entries(counts).forEach(([dish, qty]) => { msg += `• ${dish} — <b>${qty} порц.</b>\n`; });
     msg += `\n👤 Клиенты:\n`;
     orders.forEach((o, i) => {
       msg += `${i+1}. ${o.client_name} — ${o.dish} x${o.qty || 1}`;
@@ -294,8 +256,7 @@ app.post("/api/kitchen/send", async (req, res) => {
     return res.status(400).json({ error: "Нет данных для отправки" });
   }
 
-  msg += `\n━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `⏰ Доставка: 10:00 – 12:00`;
+  msg += `\n━━━━━━━━━━━━━━━━━━━\n⏰ Доставка: 10:00 – 12:00`;
 
   try {
     await sendTelegramMessage(KITCHEN_GROUP_ID, msg);
@@ -305,9 +266,8 @@ app.post("/api/kitchen/send", async (req, res) => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════
 app.get("/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "../miniapp/public", "index.html")));
 
 app.listen(PORT, () => {
   console.log(`EAT & FIT server on port ${PORT}`);
