@@ -259,7 +259,7 @@ app.post("/api/kitchen/send", async (req, res) => {
   msg += `\n━━━━━━━━━━━━━━━━━━━\n⏰ Доставка: 10:00 – 12:00`;
 
   try {
-    await sendTelegramMessage(KITCHEN_GROUP_ID, msg);
+    await sendTelegramMessage(KITCHEN_GROUP_ID, msg); 
     res.json({ ok: true });
   } catch(e) {
     res.status(500).json({ error: e.message });
