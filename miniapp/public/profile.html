@@ -8,32 +8,90 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Профиль клиента</h1>
-    <div class="sub">Проверка аккаунта и данные клиента</div>
+    <h1>👤 Профиль</h1>
+    <div class="sub">Ваши данные и баланс</div>
 
     <div class="nav">
       <a href="/menu.html">Меню</a>
+      <a href="/my-orders.html">Мои заказы</a>
       <a href="/profile.html">Профиль</a>
       <a href="#" onclick="logout()">Выход</a>
     </div>
 
-    <div class="card" id="profileCard">Загрузка...</div>
+    <!-- Баланс -->
+    <div class="card" id="balanceCard" style="text-align:center">
+      <div style="font-size:13px;color:#6b7280">Ваш баланс</div>
+      <div id="balanceNum" style="font-size:32px;font-weight:800;color:#2d6a4f;margin:8px 0">...</div>
+      <div id="balanceHistory"></div>
+    </div>
+
+    <!-- Профиль -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;margin-bottom:12px">Редактировать профиль</div>
+      <div id="ok" class="ok"></div>
+      <div class="field"><label>Имя</label><input id="p-name" type="text"></div>
+      <div class="field"><label>Телефон</label><input id="p-phone" type="tel"></div>
+      <div class="field"><label>Адрес</label><input id="p-address" type="text"></div>
+      <div class="field"><label>Логин</label><input id="p-login" type="text" disabled style="opacity:.6"></div>
+      <button class="btn btn-primary" onclick="saveProfile()">💾 Сохранить</button>
+    </div>
   </div>
 
   <script src="/client-auth.js"></script>
   <script>
-    async function loadProfile() {
-      const client = await requireAuth();
-      if (!client) return;
-      document.getElementById("profileCard").innerHTML = `
-        <div><b>Имя:</b> ${client.name || "-"}</div>
-        <div style="margin-top:8px"><b>Номер:</b> ${client.phone || "-"}</div>
-        <div style="margin-top:8px"><b>Адрес:</b> ${client.address || "-"}</div>
-        <div style="margin-top:8px"><b>Логин:</b> ${client.login || "-"}</div>
-        <div style="margin-top:8px"><b>Роль:</b> ${client.role || "пользователь"}</div>
-      `;
+    let myClient = null;
+
+    async function init() {
+      myClient = await requireAuth();
+      if (!myClient) return;
+
+      document.getElementById("p-name").value = myClient.name || "";
+      document.getElementById("p-phone").value = myClient.phone || "";
+      document.getElementById("p-address").value = myClient.address || "";
+      document.getElementById("p-login").value = myClient.login || "";
+
+      loadBalance();
     }
-    loadProfile();
+
+    async function loadBalance() {
+      const r = await authFetch("/api/client/balance");
+      if (!r.ok) return;
+      const data = await r.json();
+      document.getElementById("balanceNum").textContent =
+        Number(data.balance).toLocaleString("ru") + " сум";
+
+      if (data.history && data.history.length) {
+        document.getElementById("balanceHistory").innerHTML =
+          '<div style="margin-top:12px;text-align:left;font-size:13px">' +
+          data.history.slice(0, 10).map(d => {
+            const color = d.amount >= 0 ? "#2d6a4f" : "#dc2626";
+            const sign = d.amount >= 0 ? "+" : "";
+            return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f3f4f6">' +
+              '<span>' + (d.note || d.type) + '</span>' +
+              '<span style="font-weight:700;color:' + color + '">' + sign + Number(d.amount).toLocaleString("ru") + '</span>' +
+            '</div>';
+          }).join("") + "</div>";
+      }
+    }
+
+    async function saveProfile() {
+      const name = document.getElementById("p-name").value.trim();
+      const phone = document.getElementById("p-phone").value.trim();
+      const address = document.getElementById("p-address").value.trim();
+
+      const r = await authFetch("/api/client/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone, address }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        document.getElementById("ok").textContent = "✅ Сохранено!";
+        setTimeout(() => document.getElementById("ok").textContent = "", 3000);
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
