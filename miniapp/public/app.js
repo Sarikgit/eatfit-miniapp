@@ -650,6 +650,105 @@ function uid() {
   return "tg_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
 }
 
+// ── DEPOSITS ──────────────────────────────────────────────────
+
+async function loadDepositClients() {
+  const r = await fetch("/api/clients");
+  const clients = await r.json();
+  const sel = document.getElementById("dep-client");
+  sel.innerHTML = '<option value="">Выберите клиента...</option>' +
+    clients.map(c => `<option value="${c.id}">${c.name} (${c.phone || "—"})</option>`).join("");
+
+  sel.onchange = () => {
+    if (sel.value) loadClientBalance(sel.value);
+    else document.getElementById("dep-client-info").style.display = "none";
+  };
+
+  loadAllBalances(clients);
+}
+
+async function loadClientBalance(clientId) {
+  const r = await fetch("/api/deposits/" + clientId);
+  const data = await r.json();
+  document.getElementById("dep-client-info").style.display = "block";
+  const color = data.balance >= 0 ? "var(--green)" : "var(--red)";
+  document.getElementById("dep-balance").innerHTML =
+    `<span style="color:${color}">${Number(data.balance).toLocaleString("ru")} сум</span>`;
+
+  const hist = document.getElementById("dep-history");
+  if (!data.history || !data.history.length) {
+    hist.innerHTML = '<div class="card" style="color:var(--muted);font-size:13px">Нет операций</div>';
+    return;
+  }
+  hist.innerHTML = data.history.slice(0, 20).map(d => {
+    const isPlus = d.amount >= 0;
+    const sign = isPlus ? "+" : "";
+    const badge = isPlus
+      ? '<span class="status-badge st-done">пополнение</span>'
+      : '<span class="status-badge st-cooking">списание</span>';
+    const dateStr = new Date(d.created_at).toLocaleDateString("ru");
+    return `<div class="order-item" style="margin-bottom:6px">
+      <div class="order-header">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700;color:${isPlus ? 'var(--green)' : 'var(--red)'}">
+            ${sign}${Number(d.amount).toLocaleString("ru")} сум
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${d.note || "—"} · ${dateStr}</div>
+        </div>
+        ${badge}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function addDeposit() {
+  const clientId = document.getElementById("dep-client").value;
+  const amount = parseInt(document.getElementById("dep-amount").value);
+  const type = document.getElementById("dep-type").value;
+  const note = document.getElementById("dep-note").value.trim();
+
+  if (!clientId || !amount) { toast("Выберите клиента и укажите сумму ⚠️"); return; }
+
+  const r = await fetch("/api/deposits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: clientId, amount, type, note }),
+  });
+  const data = await r.json();
+  if (data.ok) {
+    toast("✅ Депозит внесён!");
+    document.getElementById("dep-amount").value = "";
+    document.getElementById("dep-note").value = "";
+    loadClientBalance(clientId);
+    loadAllBalances();
+  } else {
+    toast("Ошибка: " + (data.error || ""));
+  }
+}
+
+async function loadAllBalances(clientsList) {
+  const clients = clientsList || await fetch("/api/clients").then(r => r.json());
+  const el = document.getElementById("dep-all-balances");
+  if (!clients.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px">Нет клиентов</div>'; return; }
+
+  const balances = await Promise.all(
+    clients.map(c => fetch("/api/deposits/" + c.id).then(r => r.json()).then(d => ({ ...c, balance: d.balance })))
+  );
+
+  balances.sort((a, b) => b.balance - a.balance);
+
+  el.innerHTML = balances.map(c => {
+    const color = c.balance > 0 ? "var(--green)" : c.balance < 0 ? "var(--red)" : "var(--muted)";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:14px;font-weight:600">${c.name}</div>
+        <div style="font-size:12px;color:var(--muted)">${c.type === 'ration' ? '📋 Рацион' : '🍱 Ланч'}</div>
+      </div>
+      <div style="font-size:15px;font-weight:800;color:${color}">${Number(c.balance).toLocaleString("ru")} сум</div>
+    </div>`;
+  }).join("");
+}
+
 function logoutStaff() {
   localStorage.removeItem("eatfit_client_token");
   window.location.replace("/login.html");
