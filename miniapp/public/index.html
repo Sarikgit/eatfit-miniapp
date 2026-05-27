@@ -12,6 +12,35 @@
       }
     })();
   </script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async function () {
+      var token = localStorage.getItem("eatfit_client_token");
+      if (!token) return;
+      try {
+        var r = await fetch("/api/auth/me", {
+          headers: { Authorization: "Bearer " + token },
+        });
+        var data = await r.json();
+        if (!data.ok) return;
+
+        var role = data.client?.role || "";
+        window.__userRole = role;
+
+        if (role === "повар") {
+          document.querySelectorAll(".nav-tab").forEach(function (tab) {
+            var text = tab.textContent.trim();
+            var allowed = ["🍳 Кухня", "📋 Заказы", "🚪 Выход"];
+            if (!allowed.some(function (a) { return text.includes(a.replace(/^.+\s/, "")); })) {
+              tab.style.display = "none";
+            }
+          });
+          // Автоматически открыть кухню
+          var kitchenTab = document.querySelector('[onclick*="kitchen"]');
+          if (kitchenTab) kitchenTab.click();
+        }
+      } catch (e) {}
+    });
+  </script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/style.css">
 </head>
