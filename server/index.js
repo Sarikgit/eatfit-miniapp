@@ -82,6 +82,15 @@ async function initDB() {
       token       TEXT DEFAULT '',
       created_at  TIMESTAMPTZ DEFAULT NOW()
     );
+    
+    CREATE TABLE IF NOT EXISTS deposits (
+      id          TEXT PRIMARY KEY,
+      client_id   TEXT NOT NULL,
+      amount      INTEGER NOT NULL DEFAULT 0,
+      type        TEXT DEFAULT 'topup',
+      note        TEXT DEFAULT '',
+      created_at  TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
   console.log("✅ Database tables ready");
 }
