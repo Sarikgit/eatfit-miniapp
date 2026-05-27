@@ -500,6 +500,115 @@ app.delete("/api/menu/:id", async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// CLIENT SELF-SERVICE API (requires auth token)
+// ════════════════════════════════════════════════════════════════
+
+// Middleware — получить клиента по токену
+async function getClientByToken(req) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  const { rows } = await pool.query("SELECT * FROM accounts WHERE token = $1", [token]);
+  if (!rows.length) return null;
+  const acc = rows[0];
+  if (!acc.client_id) return null;
+  const cr = await pool.query("SELECT * FROM clients WHERE id = $1", [acc.client_id]);
+  return cr.rows[0] || null;
+}
+
+// ── Клиент делает заказ из меню ──
+app.post("/api/client/order", async (req, res) => {
+  const client = await getClientByToken(req);
+  if (!client) return res.status(401).json({ error: "Не авторизован" });
+
+  const { menu_id, qty, note, date } = req.body;
+  if (!menu_id) return res.status(400).json({ error: "Выберите блюдо" });
+
+  const menuItem = await pool.query("SELECT * FROM menu WHERE id = $1", [menu_id]);
+  if (!menuItem.rows.length) return res.status(404).json({ error: "Блюдо не найдено" });
+  const dish = menuItem.rows[0];
+
+  const orderDate = date || new Date().toISOString().split("T")[0];
+  const id = newId("ord");
+
+  await pool.query(
+    `INSERT INTO orders (id, client_name, date, dish, qty, note, phone, status, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,'new',NOW())`,
+    [id, client.name, orderDate, dish.name, qty || 1, note || "", client.phone]
+  );
+
+  res.json({ ok: true, order_id: id });
+});
+
+// ── История заказов клиента ──
+app.get("/api/client/orders", async (req, res) => {
+  const client = await getClientByToken(req);
+  if (!client) return res.status(401).json({ error: "Не авторизован" });
+
+  const { rows } = await pool.query(
+    "SELECT * FROM orders WHERE client_name = $1 ORDER BY created_at DESC LIMIT 50",
+    [client.name]
+  );
+  res.json(rows);
+});
+
+// ── Редактирование профиля ──
+app.patch("/api/client/profile", async (req, res) => {
+  const client = await getClientByToken(req);
+  if (!client) return res.status(401).json({ error: "Не авторизован" });
+
+  const { name, phone, address } = req.body;
+  await pool.query(
+    "UPDATE clients SET name = COALESCE($1, name), phone = COALESCE($2, phone), address = COALESCE($3, address) WHERE id = $4",
+    [name || null, phone || null, address || null, client.id]
+  );
+  res.json({ ok: true });
+});
+
+// ── Баланс клиента ──
+app.get("/api/client/balance", async (req, res) => {
+  const client = await getClientByToken(req);
+  if (!client) return res.status(401).json({ error: "Не авторизован" });
+
+  const { rows } = await pool.query(
+    "SELECT COALESCE(SUM(amount), 0) as balance FROM deposits WHERE client_id = $1",
+    [client.id]
+  );
+  const { rows: history } = await pool.query(
+    "SELECT * FROM deposits WHERE client_id = $1 ORDER BY created_at DESC LIMIT 30",
+    [client.id]
+  );
+  res.json({ balance: rows[0].balance, history });
+});
+
+// ── Админ: пополнение / списание депозита ──
+app.post("/api/deposits", async (req, res) => {
+  const { client_id, amount, type, note } = req.body;
+  if (!client_id || !amount) return res.status(400).json({ error: "Укажите клиента и сумму" });
+
+  const id = newId("dep");
+  const realAmount = type === "charge" ? -Math.abs(amount) : Math.abs(amount);
+  await pool.query(
+    `INSERT INTO deposits (id, client_id, amount, type, note, created_at)
+     VALUES ($1,$2,$3,$4,$5,NOW())`,
+    [id, client_id, realAmount, type || "topup", note || ""]
+  );
+  res.json({ ok: true });
+});
+
+// ── Админ: баланс конкретного клиента ──
+app.get("/api/deposits/:client_id", async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT COALESCE(SUM(amount), 0) as balance FROM deposits WHERE client_id = $1",
+    [req.params.client_id]
+  );
+  const { rows: history } = await pool.query(
+    "SELECT * FROM deposits WHERE client_id = $1 ORDER BY created_at DESC",
+    [req.params.client_id]
+  );
+  res.json({ balance: rows[0].balance, history });
+});
+
+// ════════════════════════════════════════════════════════════════
 // KITCHEN API
 // ════════════════════════════════════════════════════════════════
 app.post("/api/kitchen/send", async (req, res) => {
