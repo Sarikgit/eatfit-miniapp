@@ -236,6 +236,50 @@
   </div>
 </div>
 
+<!-- ══ PAGE: ДЕПОЗИТЫ ══ -->
+<div class="page" id="page-deposits">
+  <div class="card">
+    <div class="card-title">💰 Внести депозит</div>
+    <div class="field">
+      <label>Клиент</label>
+      <select id="dep-client"></select>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Сумма (сум)</label>
+        <input type="number" id="dep-amount" placeholder="500000">
+      </div>
+      <div class="field">
+        <label>Тип</label>
+        <select id="dep-type">
+          <option value="topup">➕ Пополнение</option>
+          <option value="charge">➖ Списание</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Комментарий</label>
+      <input type="text" id="dep-note" placeholder="Наличные, перевод, ежедневное списание...">
+    </div>
+    <button class="btn btn-primary" onclick="addDeposit()">💰 Внести</button>
+  </div>
+
+  <div id="dep-client-info" style="display:none">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="margin:0">Баланс клиента</div>
+        <div id="dep-balance" style="font-size:22px;font-weight:800;color:var(--green)">0</div>
+      </div>
+    </div>
+    <div id="dep-history"></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">📊 Все балансы</div>
+    <div id="dep-all-balances"></div>
+  </div>
+</div>
+  
 <!-- ══ PAGE: КУХНЯ ══ -->
 <div class="page" id="page-kitchen">
   <div class="card">
