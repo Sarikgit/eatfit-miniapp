@@ -8,56 +8,100 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Меню</h1>
-    <div class="sub">Клиентская страница меню</div>
+    <h1>🍱 Меню</h1>
+    <div class="sub" id="greeting">Загрузка...</div>
 
     <div class="nav">
       <a href="/menu.html">Меню</a>
+      <a href="/my-orders.html">Мои заказы</a>
       <a href="/profile.html">Профиль</a>
       <a href="#" onclick="logout()">Выход</a>
     </div>
 
-    <div class="card">
-      <div class="field">
-        <label>Фильтр категории</label>
-        <input id="cat" type="text" placeholder="Например: lunch">
-      </div>
-      <button class="btn btn-primary" id="loadBtn">Показать</button>
+    <div class="cats">
+      <button class="cat-btn active" onclick="filterCat('', this)">Все</button>
+      <button class="cat-btn" onclick="filterCat('breakfast', this)">🌅 Завтрак</button>
+      <button class="cat-btn" onclick="filterCat('lunch', this)">🍱 Обед</button>
+      <button class="cat-btn" onclick="filterCat('dinner', this)">🌙 Ужин</button>
+      <button class="cat-btn" onclick="filterCat('snack', this)">🥜 Снек</button>
     </div>
 
     <div id="menuList"></div>
+    <div id="toast" class="toast"></div>
   </div>
 
   <script src="/client-auth.js"></script>
   <script>
-    async function renderMenu() {
-      const client = await requireAuth();
-      if (!client) return;
-      const cat = document.getElementById("cat").value.trim();
-      const url = cat ? `/api/menu?cat=${encodeURIComponent(cat)}` : "/api/menu";
+    let currentClient = null;
+
+    async function init() {
+      currentClient = await requireAuth();
+      if (!currentClient) return;
+      document.getElementById("greeting").textContent =
+        "Привет, " + currentClient.name + "! Выбери блюдо и закажи.";
+      renderMenu();
+    }
+
+    async function renderMenu(cat) {
+      const url = cat ? "/api/menu?cat=" + cat : "/api/menu";
       const r = await fetch(url);
       const items = await r.json();
       const list = document.getElementById("menuList");
-      if (!Array.isArray(items) || !items.length) {
-        list.innerHTML = '<div class="card">Пока нет позиций в меню</div>';
+      if (!items.length) {
+        list.innerHTML = '<div class="card">Пока нет блюд</div>';
         return;
       }
-      list.innerHTML = items.map((m) => `
+      list.innerHTML = items.map(m => `
         <div class="menu-item">
           <div class="menu-top">
-            <div class="menu-name">${m.emoji || "🍽️"} ${m.name || "-"}</div>
-            <div>${m.cat || "-"}</div>
+            <div class="menu-name">${m.emoji || "🍽️"} ${m.name}</div>
           </div>
-          <div style="margin-bottom:6px;color:#6b7280">${m.desc || ""}</div>
+          <div style="color:#6b7280;font-size:13px;margin-bottom:8px">${m.desc || ""}</div>
           <div class="badges">
             <span class="badge badge-kcal">${m.kcal || 0} ккал</span>
-            <span class="badge badge-price">${Number(m.price || 0).toLocaleString("ru")} сум</span>
+            <span class="badge badge-price">${Number(m.price||0).toLocaleString("ru")} сум</span>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input type="number" id="qty-${m.id}" value="1" min="1" max="10"
+              style="width:50px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-size:15px">
+            <button class="btn btn-primary" style="flex:1" onclick="orderItem('${m.id}')">
+              Заказать
+            </button>
           </div>
         </div>
       `).join("");
     }
-    document.getElementById("loadBtn").addEventListener("click", renderMenu);
-    renderMenu();
+
+    async function orderItem(menuId) {
+      const qty = parseInt(document.getElementById("qty-" + menuId).value) || 1;
+      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+      const r = await authFetch("/api/client/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ menu_id: menuId, qty, date: tomorrow }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        showToast("✅ Заказ оформлен!");
+      } else {
+        showToast("Ошибка: " + (data.error || ""));
+      }
+    }
+
+    function filterCat(cat, btn) {
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderMenu(cat);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    init();
   </script>
 </body>
 </html>
