@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EAT&FIT - Профиль</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Профиль клиента</h1>
+    <div class="sub">Проверка аккаунта и данные клиента</div>
+
+    <div class="nav">
+      <a href="/menu.html">Меню</a>
+      <a href="/profile.html">Профиль</a>
+      <a href="#" onclick="logout()">Выход</a>
+    </div>
+
+    <div class="card" id="profileCard">Загрузка...</div>
+  </div>
+
+  <script src="/client-auth.js"></script>
+  <script>
+    async function loadProfile() {
+      const client = await requireAuth();
+      if (!client) return;
+      document.getElementById("profileCard").innerHTML = `
+        <div><b>Имя:</b> ${client.name || "-"}</div>
+        <div style="margin-top:8px"><b>Номер:</b> ${client.phone || "-"}</div>
+        <div style="margin-top:8px"><b>Адрес:</b> ${client.address || "-"}</div>
+        <div style="margin-top:8px"><b>Логин:</b> ${client.login || "-"}</div>
+        <div style="margin-top:8px"><b>Роль:</b> ${client.role || "пользователь"}</div>
+      `;
+    }
+    loadProfile();
+  </script>
+</body>
+</html>
