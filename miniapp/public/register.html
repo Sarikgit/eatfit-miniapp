@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EAT&FIT - Регистрация</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Регистрация</h1>
+    <div class="sub">Создание клиентского аккаунта</div>
+    <div class="card">
+      <div class="field"><label>Имя</label><input id="name" type="text" placeholder="Иван Иванов"></div>
+      <div class="field"><label>Номер</label><input id="phone" type="text" placeholder="+998 90 000 00 00"></div>
+      <div class="field"><label>Адрес</label><input id="address" type="text" placeholder="Ташкент, Юнусабад"></div>
+      <div class="field"><label>Логин</label><input id="login" type="text" placeholder="mylogin"></div>
+      <div class="field"><label>Пароль</label><input id="password" type="password" placeholder="******"></div>
+      <div id="error" class="err"></div>
+      <div id="ok" class="ok"></div>
+      <button class="btn btn-primary" id="registerBtn">Зарегистрироваться</button>
+    </div>
+    <div class="card">
+      Уже есть аккаунт? <a href="/login.html">Войти</a>
+    </div>
+  </div>
+
+  <script src="/client-auth.js"></script>
+  <script>
+    document.getElementById("registerBtn").addEventListener("click", async () => {
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        login: document.getElementById("login").value.trim(),
+        password: document.getElementById("password").value,
+      };
+      const errorEl = document.getElementById("error");
+      const okEl = document.getElementById("ok");
+      errorEl.textContent = "";
+      okEl.textContent = "";
+
+      if (!payload.name || !payload.phone || !payload.address || !payload.login || !payload.password) {
+        errorEl.textContent = "Заполните все поля";
+        return;
+      }
+
+      const r = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        errorEl.textContent = data.error || "Ошибка регистрации";
+        return;
+      }
+      saveToken(data.token);
+      okEl.textContent = "Готово! Переходим в меню...";
+      setTimeout(() => {
+        location.href = "/menu.html";
+      }, 600);
+    });
+  </script>
+</body>
+</html>

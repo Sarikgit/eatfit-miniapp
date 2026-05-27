@@ -1,162 +1,31 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>EAT & FIT</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  :root {
-    --green: #2d6a4f;
-    --green-light: #d8f3dc;
-    --green-text: #1b4332;
-    --orange: #f4a261;
-    --orange-light: #fff3e0;
-    --orange-text: #7c4700;
-    --red: #e63946;
-    --red-light: #fff0f0;
-    --gray: #f8f9fa;
-    --border: #e9ecef;
-    --text: #212529;
-    --muted: #6c757d;
-    --radius: 12px;
-    --radius-sm: 8px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray); color: var(--text); font-size: 15px; min-height: 100vh; }
-
-  /* Nav */
-  .nav { display: flex; background: #fff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; overflow-x: auto; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav-tab { flex: none; padding: 13px 14px; text-align: center; font-size: 13px; font-weight: 500; color: var(--muted); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
-  .nav-tab.active { color: var(--green); border-bottom-color: var(--green); }
-
-  /* Pages */
-  .page { display: none; padding: 14px; max-width: 500px; margin: 0 auto; }
-  .page.active { display: block; }
-
-  /* Cards */
-  .card { background: #fff; border-radius: var(--radius); padding: 14px; margin-bottom: 10px; border: 1px solid var(--border); }
-  .card-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 12px; }
-
-  /* Form */
-  .field { margin-bottom: 12px; }
-  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
-  .field input, .field select, .field textarea {
-    width: 100%; padding: 11px 13px; font-size: 15px;
-    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-    background: #fff; color: var(--text); font-family: inherit;
-    outline: none; -webkit-appearance: none; appearance: none;
-  }
-  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--green); }
-  .field textarea { resize: none; min-height: 70px; line-height: 1.5; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-  /* Buttons */
-  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; font-size: 15px; font-weight: 600; border-radius: var(--radius-sm); border: none; cursor: pointer; font-family: inherit; transition: opacity .15s; }
-  .btn:active { opacity: .8; }
-  .btn-primary { background: var(--green); color: #fff; }
-  .btn-orange { background: var(--orange); color: #fff; }
-  .btn-secondary { background: var(--gray); color: var(--text); border: 1px solid var(--border); }
-  .btn-danger { background: var(--red-light); color: var(--red); border: 1px solid #ffcdd2; }
-  .btn-sm { padding: 7px 12px; font-size: 13px; width: auto; border-radius: 8px; }
-
-  /* Photo */
-  .photo-box { border: 1.5px dashed var(--border); border-radius: var(--radius-sm); padding: 13px; display: flex; align-items: center; gap: 12px; background: var(--gray); cursor: pointer; }
-  .photo-box img { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
-  .photo-placeholder { width: 52px; height: 52px; border-radius: 8px; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-  .photo-info-title { font-size: 13px; font-weight: 500; }
-  .photo-info-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  /* Schedule strip */
-  .schedule-strip { display: flex; margin-bottom: 14px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
-  .sched-item { flex: 1; padding: 9px 6px; text-align: center; background: #fff; border-right: 1px solid var(--border); }
-  .sched-item:last-child { border-right: none; }
-  .sched-time { font-size: 13px; font-weight: 700; color: var(--green); }
-  .sched-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
-
-  /* Post item */
-  .post-item { background: #fff; border-radius: var(--radius); margin-bottom: 10px; border: 1px solid var(--border); overflow: hidden; }
-  .post-item-header { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--gray); border-bottom: 1px solid var(--border); }
-  .post-time { font-size: 13px; font-weight: 700; color: var(--green); min-width: 44px; }
-  .post-name { font-size: 13px; font-weight: 500; flex: 1; }
-  .post-tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
-  .tag-dish { background: var(--orange-light); color: var(--orange-text); }
-  .tag-auto { background: var(--green-light); color: var(--green-text); }
-  .post-item-body { padding: 12px 13px; }
-  .post-text-preview { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: var(--text); max-height: 100px; overflow: hidden; position: relative; }
-  .post-text-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: linear-gradient(transparent, #fff); }
-  .post-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
-  .badge-ready { background: var(--green-light); color: var(--green-text); }
-  .badge-posted { background: #e3f2fd; color: #0d47a1; }
-  .badge-error { background: var(--red-light); color: var(--red); }
-  .badge-photo { background: var(--orange-light); color: var(--orange-text); }
-  .post-actions { display: flex; gap: 8px; margin-top: 10px; }
-
-  /* Order item */
-  .order-item { background: #fff; border-radius: var(--radius); margin-bottom: 8px; border: 1px solid var(--border); overflow: hidden; }
-  .order-header { display: flex; align-items: center; gap: 10px; padding: 11px 13px; }
-  .order-name { font-size: 14px; font-weight: 700; flex: 1; }
-  .order-dish { font-size: 13px; color: var(--green); font-weight: 600; }
-  .order-body { padding: 0 13px 11px; }
-  .order-meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
-  .order-note { font-size: 12px; color: var(--orange-text); background: var(--orange-light); padding: 4px 8px; border-radius: 6px; margin-top: 6px; display: inline-block; }
-
-  /* Status badge */
-  .status-badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
-  .st-new { background: #e3f2fd; color: #1565c0; }
-  .st-cooking { background: var(--orange-light); color: var(--orange-text); }
-  .st-done { background: var(--green-light); color: var(--green-text); }
-  .st-delivered { background: #f3e5f5; color: #6a1b9a; }
-
-  /* Kitchen list */
-  .kitchen-section { margin-bottom: 16px; }
-  .kitchen-section-title { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); }
-  .ration-item { background: #fff; border-radius: var(--radius-sm); padding: 11px 13px; margin-bottom: 7px; border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
-  .ration-num { font-size: 13px; font-weight: 700; color: var(--muted); min-width: 22px; }
-  .ration-body { flex: 1; }
-  .ration-name { font-size: 14px; font-weight: 600; }
-  .ration-kcal { font-size: 13px; color: var(--green); font-weight: 700; }
-  .ration-note { font-size: 12px; color: var(--red); background: var(--red-light); padding: 3px 8px; border-radius: 6px; margin-top: 5px; display: inline-block; }
-
-  /* Summary box */
-  .summary-box { background: var(--green-light); border: 1px solid #b7e4c7; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; }
-  .summary-box .summary-title { font-size: 13px; font-weight: 700; color: var(--green-text); margin-bottom: 8px; }
-  .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .summary-label { font-size: 13px; color: var(--green-text); }
-  .summary-val { font-size: 15px; font-weight: 800; color: var(--green); }
-
-  /* Dot */
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
-  .dot-green { background: #40c057; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-
-  /* Toast */
-  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #212529; color: #fff; padding: 11px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 999; white-space: nowrap; opacity: 0; transition: opacity .3s; pointer-events: none; }
-  .toast.show { opacity: 1; }
-
-  /* Empty */
-  .empty { text-align: center; padding: 40px 16px; color: var(--muted); }
-  .empty-icon { font-size: 36px; margin-bottom: 10px; }
-  .empty-text { font-size: 14px; }
-
-  /* Qty input */
-  .qty-row { display: flex; align-items: center; gap: 10px; }
-  .qty-btn { width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--gray); font-size: 20px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .qty-val { font-size: 18px; font-weight: 700; min-width: 30px; text-align: center; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>EAT & FIT</title>
+  <script>
+    (function () {
+      var token = localStorage.getItem("eatfit_client_token");
+      if (!token) {
+        window.location.replace("/login.html");
+      }
+    })();
+  </script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-
 <nav class="nav">
-  <button class="nav-tab active" onclick="showTab('plan')">📅 Посты</button>
-  <button class="nav-tab" onclick="showTab('orders')">📋 Заказы</button>
-  <button class="nav-tab" onclick="showTab('clients')">👥 Клиенты</button>
-  <button class="nav-tab" onclick="showTab('clients')">👥 Клиенты</button>
-  <button class="nav-tab" onclick="showTab('kitchen')">🍳 Кухня</button>
-  <button class="nav-tab" onclick="showTab('queue')">🕐 Очередь</button>
-  <button class="nav-tab" onclick="showTab('history')">✅ История</button>
+  <button class="nav-tab active" onclick="showTab('plan', this)">📅 Посты</button>
+  <button class="nav-tab" onclick="showTab('orders', this)">📋 Заказы</button>
+  <button class="nav-tab" onclick="showTab('clients', this)">👥 Клиенты</button>
+  <button class="nav-tab" onclick="showTab('menu', this)">🍽 Меню</button>
+  <button class="nav-tab" onclick="showTab('register', this)">📝 Заявка</button>
+  <button class="nav-tab" onclick="showTab('kitchen', this)">🍳 Кухня</button>
+  <button class="nav-tab" onclick="showTab('queue', this)">🕐 Очередь</button>
+  <button class="nav-tab" onclick="showTab('history', this)">✅ История</button>
+  <button class="nav-tab" onclick="logoutStaff()">🚪 Выход</button>
 </nav>
 
 <!-- ══ PAGE: ПЛАН ПОСТОВ ══ -->
@@ -272,11 +141,19 @@
 
 <!-- ══ PAGE: КЛИЕНТЫ ══ -->
 <div class="page" id="page-clients">
-
-  <!-- Add client form -->
   <div class="card">
-    <div class="card-title">➕ Добавить рационного клиента</div>
+    <div class="card-title">➕ Добавить клиента</div>
     <div class="field"><label>Имя клиента</label><input type="text" id="cl-name" placeholder="Иванов Иван"></div>
+    <div class="row2">
+      <div class="field"><label>Телефон</label><input type="tel" id="cl-phone" placeholder="+998 90 000 00 00"></div>
+      <div class="field"><label>Тип</label>
+        <select id="cl-type">
+          <option value="ration">🥗 Рацион</option>
+          <option value="lunch">🍱 Ланч</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Адрес</label><input type="text" id="cl-address" placeholder="Ташкент, Юнусабад..."></div>
     <div class="row2">
       <div class="field"><label>Ккал в день</label><input type="number" id="cl-kcal" placeholder="1500"></div>
       <div class="field"><label>Цена/день (сум)</label><input type="number" id="cl-price" placeholder="45000"></div>
@@ -288,11 +165,74 @@
         <option value="пауза">⏸ Пауза</option>
       </select>
     </div>
-    <button class="btn btn-primary" onclick="addRationClient()">✅ Добавить клиента</button>
+    <button class="btn btn-primary" onclick="addClient()">✅ Добавить клиента</button>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔎</span>
+    <input type="text" id="clients-search" placeholder="Поиск по имени, телефону или адресу" oninput="loadClientsList()">
+  </div>
+  <div id="clients-list"></div>
+</div>
+
+<!-- ══ PAGE: МЕНЮ ══ -->
+<div class="page" id="page-menu">
+  <div class="card">
+    <div class="card-title">➕ Добавить блюдо</div>
+    <div class="row2">
+      <div class="field"><label>Название</label><input type="text" id="m-name" placeholder="Курица с рисом"></div>
+      <div class="field"><label>Эмодзи</label><input type="text" id="m-emoji" placeholder="🍱"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Категория</label>
+        <select id="m-cat">
+          <option value="breakfast">🍳 Завтрак</option>
+          <option value="lunch" selected>🍱 Обед</option>
+          <option value="dinner">🍽 Ужин</option>
+          <option value="snack">🥤 Снек</option>
+        </select>
+      </div>
+      <div class="field"><label>Ккал</label><input type="number" id="m-kcal" placeholder="480"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Цена (сум)</label><input type="number" id="m-price" placeholder="45000"></div>
+      <div class="field"><label>Описание</label><input type="text" id="m-desc" placeholder="Сытный и сбалансированный обед"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addMenuItem()">✅ Добавить в меню</button>
   </div>
 
-  <!-- Clients list -->
-  <div id="clients-list"></div>
+  <div class="menu-cats">
+    <button class="cat-pill active" onclick="setMenuFilter('', this)">Все</button>
+    <button class="cat-pill" onclick="setMenuFilter('breakfast', this)">Завтрак</button>
+    <button class="cat-pill" onclick="setMenuFilter('lunch', this)">Обед</button>
+    <button class="cat-pill" onclick="setMenuFilter('dinner', this)">Ужин</button>
+    <button class="cat-pill" onclick="setMenuFilter('snack', this)">Снек</button>
+  </div>
+
+  <div id="menu-list"></div>
+</div>
+
+<!-- ══ PAGE: ЗАЯВКА ══ -->
+<div class="page" id="page-register">
+  <div class="card">
+    <div class="card-title">📝 Регистрация клиента</div>
+    <div id="register-success" class="alert-success">Заявка сохранена. Клиент добавлен в базу.</div>
+    <div id="register-error" class="alert-error"></div>
+
+    <div class="field"><label>Имя</label><input type="text" id="r-name" placeholder="Имя и фамилия"></div>
+    <div class="field"><label>Телефон</label><input type="tel" id="r-phone" placeholder="+998 90 000 00 00"></div>
+    <div class="field"><label>Адрес</label><input type="text" id="r-address" placeholder="Район, улица, ориентир"></div>
+    <div class="row2">
+      <div class="field"><label>Тип питания</label>
+        <select id="r-type">
+          <option value="ration">🥗 Рацион</option>
+          <option value="lunch">🍱 Ланч</option>
+        </select>
+      </div>
+      <div class="field"><label>Цель</label><input type="text" id="r-goal" placeholder="Похудение / масса"></div>
+    </div>
+    <div class="field"><label>Аллергии / пожелания</label><textarea id="r-notes" placeholder="Без лука, без сахара..."></textarea></div>
+    <button class="btn btn-primary" onclick="registerClient()">✅ Отправить заявку</button>
+  </div>
 </div>
 
 <!-- ══ PAGE: КУХНЯ ══ -->
@@ -329,596 +269,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
-<script>
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
-
-let currentQty = 1;
-
-// ── Init ──────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Set dates
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  document.getElementById('pub-date').value = tomorrow;
-  document.getElementById('o-date').value = tomorrow;
-  document.getElementById('o-filter-date').value = today;
-  document.getElementById('k-date').value = today;
-
-  renderDishHistory();
-  loadOrdersList();
-  loadKitchen();
-});
-
-// ── Tabs ──────────────────────────────────────────────────────
-function showTab(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
-  if (name === 'queue') loadQueue();
-  if (name === 'history') loadHistory();
-  if (name === 'orders') loadOrdersList();
-  if (name === 'kitchen') loadKitchen();
-  if (name === 'clients') loadClientsList();
-}
-
-// ── Qty ───────────────────────────────────────────────────────
-function changeQty(d) {
-  currentQty = Math.max(1, currentQty + d);
-  document.getElementById('qty-val').textContent = currentQty;
-}
-
-// ── ORDERS ────────────────────────────────────────────────────
-async function addOrder() {
-  const name  = document.getElementById('o-name').value.trim();
-  const date  = document.getElementById('o-date').value;
-  const dish  = document.getElementById('o-dish').value;
-  const note  = document.getElementById('o-note').value.trim();
-  const phone = document.getElementById('o-phone').value.trim();
-
-  if (!name || !date) { toast('Укажите имя и дату ⚠️'); return; }
-
-  const r = await fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ client_name: name, date, dish, qty: currentQty, note, phone, status: 'new' })
-  });
-  const data = await r.json();
-  if (data.ok) {
-    toast('✅ Заказ добавлен!');
-    document.getElementById('o-name').value = '';
-    document.getElementById('o-note').value = '';
-    document.getElementById('o-phone').value = '';
-    currentQty = 1;
-    document.getElementById('qty-val').textContent = '1';
-    loadOrdersList();
-  } else {
-    toast('Ошибка: ' + data.error);
-  }
-}
-
-async function loadOrdersList() {
-  const dateFilter = document.getElementById('o-filter-date').value;
-  const url = dateFilter ? `/api/orders?date=${dateFilter}` : '/api/orders';
-  const el = document.getElementById('orders-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const r = await fetch(url);
-    const orders = await r.json();
-    if (!orders.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет заказов</div></div>';
-      return;
-    }
-    el.innerHTML = orders.sort((a,b) => b.created_at.localeCompare(a.created_at)).map(o => renderOrderItem(o)).join('');
-  } catch(e) {
-    el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>';
-  }
-}
-
-function clearOrderFilter() {
-  document.getElementById('o-filter-date').value = '';
-  loadOrdersList();
-}
-
-function renderOrderItem(o) {
-  const statusMap = { new:'🆕 Новый', cooking:'👨‍🍳 Готовится', done:'✅ Готово', delivered:'🚗 Доставлен' };
-  const statusCls = { new:'st-new', cooking:'st-cooking', done:'st-done', delivered:'st-delivered' };
-  return `<div class="order-item" id="oi-${o.id}">
-    <div class="order-header">
-      <div class="order-body" style="flex:1">
-        <div class="order-name">${o.client_name}</div>
-        <div class="order-dish">${o.dish} × ${o.qty || 1}</div>
-      </div>
-      <span class="status-badge ${statusCls[o.status]||'st-new'}">${statusMap[o.status]||o.status}</span>
-    </div>
-    <div class="order-body">
-      <div class="order-meta">
-        <span>📅 ${o.date}</span>
-        ${o.phone ? `<span>📞 ${o.phone}</span>` : ''}
-      </div>
-      ${o.note ? `<div class="order-note">⚠️ ${o.note}</div>` : ''}
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" onclick="updateOrderStatus('${o.id}','cooking')">👨‍🍳 Готовится</button>
-        <button class="btn btn-primary btn-sm" onclick="updateOrderStatus('${o.id}','done')">✅ Готово</button>
-        <button class="btn btn-secondary btn-sm" onclick="updateOrderStatus('${o.id}','delivered')">🚗 Доставлен</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteOrder('${o.id}')">🗑</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-async function updateOrderStatus(id, status) {
-  await fetch(`/api/orders/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
-  });
-  loadOrdersList();
-  toast('Статус обновлён');
-}
-
-async function deleteOrder(id) {
-  if (!confirm('Удалить заказ?')) return;
-  await fetch(`/api/orders/${id}`, { method: 'DELETE' });
-  loadOrdersList();
-  toast('Удалено');
-}
-
-// ── KITCHEN ───────────────────────────────────────────────────
-let kitchenData = { ration: [], orders: [] };
-
-async function loadKitchen() {
-  const date = document.getElementById('k-date').value;
-  if (!date) return;
-
-  const el = document.getElementById('kitchen-content');
-  const sendBtn = document.getElementById('kitchen-send-btn');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">Загрузка...</div></div>';
-  sendBtn.style.display = 'none';
-
-  try {
-    // Load ration clients from Sheets + today's orders
-    const [rationClients, orders] = await Promise.all([
-      loadRationClients().then(cls => cls.filter(c => c.status === 'активен')),
-      fetch(`/api/orders?date=${date}`).then(r => r.json())
-    ]);
-
-    kitchenData = { ration: rationClients, orders };
-
-    let html = '';
-
-    // ── Рационы ──
-    if (rationClients.length > 0) {
-      const totalKcal = rationClients.reduce((s,c) => s + (parseInt(c.kcal)||0), 0);
-      html += `<div class="kitchen-section">
-        <div class="kitchen-section-title">📋 Рационы — ${rationClients.length} чел.</div>`;
-
-      rationClients.forEach((c, i) => {
-        html += `<div class="ration-item">
-          <div class="ration-num">${i+1}</div>
-          <div class="ration-body">
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div class="ration-name">${c.name}</div>
-              <div class="ration-kcal">${c.kcal||'?'} ккал</div>
-            </div>
-            ${c.kitchen ? `<div class="ration-note">⚠️ ${c.kitchen}</div>` : ''}
-          </div>
-        </div>`;
-      });
-
-      html += `<div class="summary-box">
-        <div class="summary-title">Итого рационы</div>
-        <div class="summary-row"><span class="summary-label">Человек</span><span class="summary-val">${rationClients.length}</span></div>
-        <div class="summary-row"><span class="summary-label">Общий ккал</span><span class="summary-val">${totalKcal}</span></div>
-      </div></div>`;
-    }
-
-    // ── Обеды ──
-    if (orders.length > 0) {
-      // Count by dish
-      const counts = {};
-      orders.forEach(o => {
-        counts[o.dish] = (counts[o.dish]||0) + (parseInt(o.qty)||1);
-      });
-
-      html += `<div class="kitchen-section">
-        <div class="kitchen-section-title">🍱 Обеды — ${orders.length} заказов</div>`;
-
-      // Summary
-      html += `<div class="summary-box">
-        <div class="summary-title">Итого порций</div>`;
-      Object.entries(counts).forEach(([dish, qty]) => {
-        html += `<div class="summary-row"><span class="summary-label">${dish}</span><span class="summary-val">${qty} порц.</span></div>`;
-      });
-      html += `</div>`;
-
-      // Individual orders
-      orders.forEach((o, i) => {
-        html += `<div class="ration-item">
-          <div class="ration-num">${i+1}</div>
-          <div class="ration-body">
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div class="ration-name">${o.client_name}</div>
-              <div class="ration-kcal">${o.dish} × ${o.qty||1}</div>
-            </div>
-            ${o.note ? `<div class="ration-note">⚠️ ${o.note}</div>` : ''}
-          </div>
-        </div>`;
-      });
-      html += `</div>`;
-    }
-
-    if (!rationClients.length && !orders.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Нет данных на эту дату</div></div>';
-      return;
-    }
-
-    el.innerHTML = html;
-    sendBtn.style.display = 'block';
-
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-text">Ошибка: ${e.message}</div></div>`;
-  }
-}
-
-async function sendToKitchen() {
-  const date = document.getElementById('k-date').value;
-  const btn = document.querySelector('#kitchen-send-btn .btn');
-  btn.textContent = '⏳ Отправляю...';
-  btn.disabled = true;
-
-  try {
-    const r = await fetch('/api/kitchen/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        date,
-        orders: kitchenData.orders,
-        ration_clients: kitchenData.ration
-      })
-    });
-    const data = await r.json();
-    if (data.ok) {
-      toast('✅ Кухонный лист отправлен в EAT&FIT TEAM!');
-    } else {
-      toast('Ошибка: ' + data.error);
-    }
-  } catch(e) {
-    toast('Ошибка: ' + e.message);
-  } finally {
-    btn.textContent = '📨 Отправить повару в EAT&FIT TEAM';
-    btn.disabled = false;
-  }
-}
-
-// ── DISH HISTORY ──────────────────────────────────────────────
-const HISTORY_KEY = 'eatfit_dish_history';
-function loadDishHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
-}
-function saveDishToHistory(dish) {
-  let h = loadDishHistory();
-  h = h.filter(d => d.name !== dish.name);
-  h.unshift(dish);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h.slice(0, 20)));
-}
-function renderDishHistory() {
-  const h = loadDishHistory();
-  const block = document.getElementById('dish-history-block');
-  const list = document.getElementById('dish-history-list');
-  if (!h.length) { block.style.display = 'none'; return; }
-  block.style.display = '';
-  list.innerHTML = h.map((d, i) => `
-    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:9px 12px">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500">${d.name}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${d.kcal} ккал | ${d.type==='protein'?'🔥':'⚖️'}</div>
-      </div>
-      <button style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--green);color:#fff;cursor:pointer" onclick="fillFromHistory(${i},'1')">Сет 1</button>
-      <button style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--gray);cursor:pointer" onclick="fillFromHistory(${i},'2')">Сет 2</button>
-    </div>`).join('');
-}
-function fillFromHistory(idx, prefix) {
-  const d = loadDishHistory()[idx];
-  if (!d) return;
-  ['name','type','kcal','prot','fat','carb','portion'].forEach(f => {
-    const el = document.getElementById(`d${prefix}-${f}`);
-    if (el) el.value = d[f] || '';
-  });
-  toast(`✓ Сет ${prefix}: ${d.name}`);
-}
-
-// ── PHOTO UPLOAD ──────────────────────────────────────────────
-const IMGBB_KEY = '2c809fab10891ae2d68a20d3e5f4350b';
-// Сжатие фото через canvas — качество 92%, макс 1600px
-function compressImage(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX = 1600;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
-          else { w = Math.round(w * MAX / h); h = MAX; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function uploadPhoto(prefix, input) {
-  const file = input.files[0];
-  if (!file) return;
-  const box = document.getElementById(prefix + '-photo-box');
-  box.innerHTML = '<div class="photo-placeholder">⏳</div><div><div class="photo-info-title">Сжатие и загрузка...</div><div class="photo-info-sub">Подождите</div></div>';
-  try {
-    const compressed = await compressImage(file);
-    const formData = new FormData();
-    formData.append('image', compressed, 'photo.jpg');
-    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.success) {
-      const url = data.data.url;
-      document.getElementById(prefix + '-photo').value = url;
-      const sizeMB = (compressed.size / 1024 / 1024).toFixed(1);
-      box.innerHTML = `<img src="${url}" style="width:52px;height:52px;border-radius:8px;object-fit:cover"><div><div class="photo-info-title" style="color:var(--green)">✓ Загружено (${sizeMB} МБ)</div><div class="photo-info-sub">Качество 92%</div></div>`;
-    } else throw new Error('ImgBB: ' + (data.error?.message || 'ошибка'));
-  } catch(e) {
-    box.innerHTML = `<div class="photo-placeholder">❌</div><div><div class="photo-info-title" style="color:var(--red)">Ошибка: ${e.message}</div></div>`;
-  }
-}
-
-// ── RATION CLIENTS ───────────────────────────────────────────
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxS1Yji6oK3nA8QjUvnzmJNKloAeBVQIe_Fqhn9awced7Y_1rIQXuQPitsO9fYGsiF_/exec';
-const GK = 'AIzaSyAIh46apdjvI6TevF13Lh4XbqdySnVE5r4';
-const SID = '1ZyWv33sQC8sK5MpqE3rDVdvCTzNL6Azf6xy6UYe8FBw';
-
-async function sheetsGet(range) {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SID}/values/${encodeURIComponent(range)}?key=${GK}`);
-  const data = await res.json();
-  return data.values || [];
-}
-
-async function sheetsWrite(sheet, row) {
-  const res = await fetch(GAS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify({ sheet, row })
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Ошибка записи');
-  return data;
-}
-
-async function sheetsUpdate(range, values) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${GK}`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values })
-  });
-  if (!res.ok) throw new Error('Sheets update error');
-  return res.json();
-}
-
-async function loadRationClients() {
-  const rows = await sheetsGet('рационы!A2:E100');
-  return rows.map((r, i) => ({
-    row: i + 2,
-    name: r[0] || '',
-    kcal: r[1] || '',
-    comment: r[2] || '',
-    status: r[3] || 'активен',
-    price: r[4] || ''
-  })).filter(c => c.name);
-}
-
-async function addRationClient() {
-  const name    = document.getElementById('cl-name').value.trim();
-  const kcal    = document.getElementById('cl-kcal').value.trim();
-  const price   = document.getElementById('cl-price').value.trim();
-  const comment = document.getElementById('cl-comment').value.trim();
-  const status  = document.getElementById('cl-status').value;
-
-  if (!name || !kcal) { toast('Введите имя и ккал ⚠️'); return; }
-
-  try {
-    await sheetsWrite('рационы', [name, kcal, comment, status, price]);
-    toast('✅ Клиент добавлен!');
-    document.getElementById('cl-name').value = '';
-    document.getElementById('cl-kcal').value = '';
-    document.getElementById('cl-price').value = '';
-    document.getElementById('cl-comment').value = '';
-    loadClientsList();
-  } catch(e) {
-    toast('Ошибка: ' + e.message);
-  }
-}
-
-async function loadClientsList() {
-  const el = document.getElementById('clients-list');
-  if (!el) return;
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const clients = await loadRationClients();
-    if (!clients.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Нет рационных клиентов</div></div>';
-      return;
-    }
-    el.innerHTML = clients.map(c => `
-      <div class="order-item" id="cli-${c.row}">
-        <div class="order-header">
-          <div style="flex:1">
-            <div class="order-name">${c.name}</div>
-            <div class="order-dish">${c.kcal} ккал/день ${c.price ? '· ' + Number(c.price).toLocaleString('ru') + ' сум' : ''}</div>
-          </div>
-          <span class="status-badge ${c.status === 'активен' ? 'st-done' : 'st-cooking'}">${c.status === 'активен' ? '✅ Активен' : '⏸ Пауза'}</span>
-        </div>
-        <div class="order-body">
-          ${c.comment ? `<div class="order-note">⚠️ ${c.comment}</div>` : ''}
-          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm" onclick="editClient(${c.row}, '${c.name.replace(/'/g,"\'")}', '${c.kcal}', '${c.comment.replace(/'/g,"\'")}', '${c.status}', '${c.price}')">✏️ Изменить</button>
-            <button class="btn btn-secondary btn-sm" onclick="toggleClientStatus(${c.row}, '${c.status}')">${c.status === 'активен' ? '⏸ Пауза' : '▶️ Активировать'}</button>
-          </div>
-        </div>
-      </div>`).join('');
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-text">Ошибка: ${e.message}</div></div>`;
-  }
-}
-
-async function toggleClientStatus(row, currentStatus) {
-  const newStatus = currentStatus === 'активен' ? 'пауза' : 'активен';
-  try {
-    await sheetsUpdate(`рационы!D${row}`, [[newStatus]]);
-    toast('Статус обновлён');
-    loadClientsList();
-  } catch(e) {
-    toast('Ошибка: ' + e.message);
-  }
-}
-
-function editClient(row, name, kcal, comment, status, price) {
-  document.getElementById('cl-name').value = name;
-  document.getElementById('cl-kcal').value = kcal;
-  document.getElementById('cl-comment').value = comment;
-  document.getElementById('cl-status').value = status;
-  document.getElementById('cl-price').value = price;
-  // scroll to form
-  document.querySelector('#page-clients .card').scrollIntoView({ behavior: 'smooth' });
-  toast('Отредактируй и нажми "Добавить" — данные обновятся');
-}
-
-// ── POST TEXTS ────────────────────────────────────────────────
-function buildDishText(name, type, kcal, prot, fat, carb, portion) {
-  const icon = type === 'protein' ? '🍗' : '🍱';
-  const typeStr = type === 'protein' ? '🔥 Высокобелковый' : '⚖️ Баланс';
-  return `${icon} ${name} — 45 000 сум\n\n${typeStr}\n${kcal||'—'} ккал  |  Б ${prot||'—'}  |  Ж ${fat||'—'}  |  У ${carb||'—'}\n\n🍱 Порция: ~${portion||'450–500'} г\n⏰ Доставка: 10:00 – 12:00  📥 Заказ до 09:00\n\n📩 Заказ: @eat_fit_uz`;
-}
-function buildOpenText(delivDate) {
-  const d = new Date(delivDate);
-  const days = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
-  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-  return `📢 Приём заказов открыт!\nПринимаем заказы на ${d.getDate()} ${months[d.getMonth()]} (${days[d.getDay()]})\n⏰ Доставка: 10:00 – 12:00  📥 Заказы до 09:00\nМеню выше 👆\n📩 @eat_fit_uz  #eatfit_обед`;
-}
-function buildRemindText() {
-  return `⏰ Последний шанс!\nПриём заказов закрывается в 09:00.\n📩 @eat_fit_uz`;
-}
-
-// ── CREATE DAY ────────────────────────────────────────────────
-async function createDay() {
-  const date = document.getElementById('pub-date').value;
-  const d1name = document.getElementById('d1-name').value.trim();
-  const d2name = document.getElementById('d2-name').value.trim();
-  if (!date || !d1name || !d2name) { toast('Заполните дату и оба блюда ⚠️'); return; }
-
-  saveDishToHistory({ name: d1name, type: document.getElementById('d1-type').value, kcal: document.getElementById('d1-kcal').value, prot: document.getElementById('d1-prot').value, fat: document.getElementById('d1-fat').value, carb: document.getElementById('d1-carb').value, portion: document.getElementById('d1-portion').value });
-  saveDishToHistory({ name: d2name, type: document.getElementById('d2-type').value, kcal: document.getElementById('d2-kcal').value, prot: document.getElementById('d2-prot').value, fat: document.getElementById('d2-fat').value, carb: document.getElementById('d2-carb').value, portion: document.getElementById('d2-portion').value });
-
-  const today = new Date().toISOString().split('T')[0];
-  const nextDay = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-  const posts = [
-    { id: uid(), label: '🍱 Сет 1 — '+d1name, tag:'dish', text: buildDishText(d1name, document.getElementById('d1-type').value, document.getElementById('d1-kcal').value, document.getElementById('d1-prot').value, document.getElementById('d1-fat').value, document.getElementById('d1-carb').value, document.getElementById('d1-portion').value), photo_url: document.getElementById('d1-photo').value.trim(), publish_date: today, publish_time: '15:00', status: 'ready' },
-    { id: uid(), label: '🍱 Сет 2 — '+d2name, tag:'dish', text: buildDishText(d2name, document.getElementById('d2-type').value, document.getElementById('d2-kcal').value, document.getElementById('d2-prot').value, document.getElementById('d2-fat').value, document.getElementById('d2-carb').value, document.getElementById('d2-portion').value), photo_url: document.getElementById('d2-photo').value.trim(), publish_date: today, publish_time: '15:05', status: 'ready' },
-    { id: uid(), label: '📢 Заказы открыты', tag:'auto', text: buildOpenText(date), photo_url: '', publish_date: today, publish_time: '17:00', status: 'ready' },
-    { id: uid(), label: '⏰ Последний шанс', tag:'auto', text: buildRemindText(), photo_url: '', publish_date: nextDay, publish_time: '08:45', status: 'ready' }
-  ];
-
-  try {
-    const r = await fetch('/api/posts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(posts) });
-    const data = await r.json();
-    if (data.ok) {
-      toast('✅ 4 поста добавлены в очередь!');
-      renderDishHistory();
-      setTimeout(() => { document.querySelectorAll('.nav-tab')[3].click(); }, 1200);
-    }
-  } catch(e) { toast('Ошибка: ' + e.message); }
-}
-
-// ── QUEUE & HISTORY ───────────────────────────────────────────
-async function loadQueue() {
-  const el = document.getElementById('queue-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const r = await fetch('/api/posts');
-    const posts = await r.json();
-    const queue = posts.filter(p => p.status === 'ready' || p.status === 'draft');
-    if (!queue.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">Очередь пустая</div></div>'; return; }
-    el.innerHTML = queue.sort((a,b) => (a.publish_date+a.publish_time).localeCompare(b.publish_date+b.publish_time)).map(p => renderPostItem(p, true)).join('');
-  } catch(e) { el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>'; }
-}
-
-async function loadHistory() {
-  const el = document.getElementById('history-list');
-  el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div></div>';
-  try {
-    const r = await fetch('/api/posts');
-    const posts = await r.json();
-    const done = posts.filter(p => p.status === 'posted' || p.status === 'error');
-    if (!done.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Нет опубликованных</div></div>'; return; }
-    el.innerHTML = done.sort((a,b) => (b.posted_at||'').localeCompare(a.posted_at||'')).map(p => renderPostItem(p, false)).join('');
-  } catch(e) { el.innerHTML = '<div class="empty"><div class="empty-text">Ошибка загрузки</div></div>'; }
-}
-
-function renderPostItem(p, isQueue) {
-  const badgeClass = { ready:'badge-ready', posted:'badge-posted', error:'badge-error' }[p.status] || '';
-  const badgeLabel = { ready:'В очереди', posted:'Опубликован', error:'Ошибка' }[p.status] || p.status;
-  const actions = isQueue ? `<div class="post-actions">
-    <button class="btn btn-secondary btn-sm" onclick="publishNow('${p.id}')">🚀 Сейчас</button>
-    <button class="btn btn-danger btn-sm" onclick="deletePost('${p.id}')">🗑</button>
-  </div>` : '';
-  return `<div class="post-item" id="pitem-${p.id}">
-    <div class="post-item-header">
-      <span class="post-time">${p.publish_time}</span>
-      <span class="post-name">${p.label}</span>
-      <span class="post-tag ${p.tag==='auto'?'tag-auto':'tag-dish'}">${p.tag==='auto'?'авто':'блюдо'}</span>
-    </div>
-    <div class="post-item-body">
-      <div class="post-text-preview">${p.text}</div>
-      <div class="post-meta">
-        <span class="badge ${badgeClass}">${badgeLabel}</span>
-        ${p.photo_url?'<span class="badge badge-photo">📷</span>':''}
-        <span style="font-size:11px;color:var(--muted)">${p.publish_date}</span>
-      </div>
-      ${p.error?`<div style="font-size:12px;color:var(--red);margin-top:6px">⚠️ ${p.error}</div>`:''}
-      ${actions}
-    </div>
-  </div>`;
-}
-
-async function publishNow(id) {
-  const r = await fetch(`/api/posts/${id}/publish`, { method: 'POST' });
-  const data = await r.json();
-  if (data.ok) { toast('✅ Опубликовано!'); loadQueue(); }
-  else toast('Ошибка: ' + data.error);
-}
-
-async function deletePost(id) {
-  if (!confirm('Удалить пост?')) return;
-  await fetch(`/api/posts/${id}`, { method: 'DELETE' });
-  document.getElementById('pitem-'+id)?.remove();
-  toast('Удалено');
-}
-
-// ── UTILS ─────────────────────────────────────────────────────
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-function uid() { return 'tg_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
-</script>
+<script src="/app.js"></script>
 </body>
 </html>

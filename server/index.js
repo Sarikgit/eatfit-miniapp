@@ -23,6 +23,7 @@ const POSTS_FILE   = path.join(DATA_DIR, "posts.json");
 const ORDERS_FILE  = path.join(DATA_DIR, "orders.json");
 const CLIENTS_FILE = path.join(DATA_DIR, "clients.json");
 const MENU_FILE    = path.join(DATA_DIR, "menu.json");
+const ACCOUNTS_FILE = path.join(DATA_DIR, "accounts.json");
 
 // ── GENERIC JSON HELPERS ──────────────────────────────────────
 function readJSON(file) {
@@ -43,9 +44,54 @@ const loadClients = ()        => readJSON(CLIENTS_FILE);
 const saveClients = (d)       => writeJSON(CLIENTS_FILE, d);
 const loadMenu    = ()        => readJSON(MENU_FILE);
 const saveMenu    = (d)       => writeJSON(MENU_FILE, d);
+const loadAccounts = ()       => readJSON(ACCOUNTS_FILE);
+const saveAccounts = (d)      => writeJSON(ACCOUNTS_FILE, d);
 
 function newId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+function newToken() {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+function normalizeLogin(login) {
+  return String(login || "").trim().toLowerCase();
+}
+function getBearerToken(req) {
+  const header = req.headers.authorization || "";
+  if (!header.startsWith("Bearer ")) return "";
+  return header.slice(7).trim();
+}
+function ensureDefaultAccounts() {
+  const accounts = loadAccounts();
+  let changed = false;
+
+  if (!accounts.some(a => a.login === "admin")) {
+    accounts.push({
+      id: newId("acc"),
+      login: "admin",
+      password: "Hgfd-32nJ",
+      role: "админ",
+      client_id: "",
+      token: "",
+      created_at: new Date().toISOString(),
+    });
+    changed = true;
+  }
+
+  if (!accounts.some(a => a.login === "cook")) {
+    accounts.push({
+      id: newId("acc"),
+      login: "cook",
+      password: "cook-1234",
+      role: "повар",
+      client_id: "",
+      token: "",
+      created_at: new Date().toISOString(),
+    });
+    changed = true;
+  }
+
+  if (changed) saveAccounts(accounts);
 }
 
 // ── TELEGRAM HELPERS ──────────────────────────────────────────
@@ -239,6 +285,116 @@ app.delete("/api/clients/:id", (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════════
+// AUTH API (client side)
+// ════════════════════════════════════════════════════════════════
+app.post("/api/auth/register", (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const phone = String(req.body.phone || "").trim();
+  const address = String(req.body.address || "").trim();
+  const login = normalizeLogin(req.body.login);
+  const password = String(req.body.password || "");
+  if (!name || !phone || !address || !login || !password) {
+    return res.status(400).json({ error: "Заполните все поля" });
+  }
+
+  const accounts = loadAccounts();
+  if (accounts.some(a => a.login === login)) {
+    return res.status(400).json({ error: "Логин уже существует" });
+  }
+
+  const clients = loadClients();
+  const client = {
+    id: newId("cl"),
+    name,
+    phone,
+    address,
+    kcal: "",
+    price: "",
+    notes: "",
+    type: "ration",
+    status: "активен",
+    created_at: new Date().toISOString(),
+  };
+  clients.push(client);
+  saveClients(clients);
+
+  const token = newToken();
+  const account = {
+    id: newId("acc"),
+    login,
+    password,
+    role: "пользователь",
+    client_id: client.id,
+    token,
+    created_at: new Date().toISOString(),
+  };
+  accounts.push(account);
+  saveAccounts(accounts);
+
+  res.json({
+    ok: true,
+    token,
+    client: {
+      id: client.id,
+      name: client.name,
+      phone: client.phone,
+      address: client.address,
+      login: account.login,
+      role: account.role || "пользователь",
+    },
+  });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const login = normalizeLogin(req.body.login);
+  const password = String(req.body.password || "");
+  if (!login || !password) return res.status(400).json({ error: "Введите логин и пароль" });
+
+  const accounts = loadAccounts();
+  const account = accounts.find(a => a.login === login && a.password === password);
+  if (!account) return res.status(401).json({ error: "Неверный логин или пароль" });
+
+  account.token = newToken();
+  saveAccounts(accounts);
+
+  const client = loadClients().find(c => c.id === account.client_id);
+  res.json({
+    ok: true,
+    token: account.token,
+    client: {
+      id: client?.id || "",
+      name: client?.name || account.login,
+      phone: client?.phone || "",
+      address: client?.address || "",
+      login: account.login,
+      role: account.role || "пользователь",
+    },
+  });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  const token = getBearerToken(req);
+  if (!token) return res.status(401).json({ error: "Нет токена" });
+
+  const account = loadAccounts().find(a => a.token === token);
+  if (!account) return res.status(401).json({ error: "Сессия недействительна" });
+
+  const client = loadClients().find(c => c.id === account.client_id);
+
+  res.json({
+    ok: true,
+    client: {
+      id: client?.id || "",
+      name: client?.name || account.login,
+      phone: client?.phone || "",
+      address: client?.address || "",
+      login: account.login,
+      role: account.role || "пользователь",
+    },
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
 // MENU API
 // ════════════════════════════════════════════════════════════════
 app.get("/api/menu", (req, res) => {
@@ -339,6 +495,7 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
+  ensureDefaultAccounts();
   console.log(`EAT & FIT server on port ${PORT}`);
   if (!BOT_TOKEN)  console.warn("⚠️  BOT_TOKEN not set!");
   if (!CHANNEL_ID) console.warn("⚠️  CHANNEL_ID not set!");

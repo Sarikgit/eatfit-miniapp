@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EAT&FIT - Меню</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Меню</h1>
+    <div class="sub">Клиентская страница меню</div>
+
+    <div class="nav">
+      <a href="/menu.html">Меню</a>
+      <a href="/profile.html">Профиль</a>
+      <a href="#" onclick="logout()">Выход</a>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Фильтр категории</label>
+        <input id="cat" type="text" placeholder="Например: lunch">
+      </div>
+      <button class="btn btn-primary" id="loadBtn">Показать</button>
+    </div>
+
+    <div id="menuList"></div>
+  </div>
+
+  <script src="/client-auth.js"></script>
+  <script>
+    async function renderMenu() {
+      const client = await requireAuth();
+      if (!client) return;
+      const cat = document.getElementById("cat").value.trim();
+      const url = cat ? `/api/menu?cat=${encodeURIComponent(cat)}` : "/api/menu";
+      const r = await fetch(url);
+      const items = await r.json();
+      const list = document.getElementById("menuList");
+      if (!Array.isArray(items) || !items.length) {
+        list.innerHTML = '<div class="card">Пока нет позиций в меню</div>';
+        return;
+      }
+      list.innerHTML = items.map((m) => `
+        <div class="menu-item">
+          <div class="menu-top">
+            <div class="menu-name">${m.emoji || "🍽️"} ${m.name || "-"}</div>
+            <div>${m.cat || "-"}</div>
+          </div>
+          <div style="margin-bottom:6px;color:#6b7280">${m.desc || ""}</div>
+          <div class="badges">
+            <span class="badge badge-kcal">${m.kcal || 0} ккал</span>
+            <span class="badge badge-price">${Number(m.price || 0).toLocaleString("ru")} сум</span>
+          </div>
+        </div>
+      `).join("");
+    }
+    document.getElementById("loadBtn").addEventListener("click", renderMenu);
+    renderMenu();
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "acc_1779896097472_bfn8",
+    "login": "+998901111111",
+    "password": "worker123",
+    "client_id": "cl_1779896097471_prrh",
+    "token": "1779896403862_uxv4vrnho0",
+    "created_at": "2026-05-27T15:34:57.472Z"
+  },
+  {
+    "id": "acc_1779896221228_r7l6",
+    "login": "admin",
+    "password": "Hgfd-32nJ",
+    "role": "админ",
+    "client_id": "",
+    "token": "1779902097077_z8wqjrhg6l",
+    "created_at": "2026-05-27T15:37:01.228Z"
+  },
+  {
+    "id": "acc_1779896221228_cjj5",
+    "login": "cook",
+    "password": "cook-1234",
+    "role": "повар",
+    "client_id": "",
+    "token": "",
+    "created_at": "2026-05-27T15:37:01.228Z"
+  },
+  {
+    "id": "acc_1779902080583_mpml",
+    "login": "login",
+    "password": "123456",
+    "role": "пользователь",
+    "client_id": "cl_1779902080583_fp7z",
+    "token": "1779902132193_xo4r8jrqez",
+    "created_at": "2026-05-27T17:14:40.583Z"
+  }
+]

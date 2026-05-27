@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EAT&FIT - Вход</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Вход</h1>
+    <div class="sub">Клиентская сторона EAT&FIT</div>
+    <div class="card">
+      <div class="field">
+        <label>Логин</label>
+        <input id="login" type="text" placeholder="your_login">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input id="password" type="password" placeholder="******">
+      </div>
+      <div id="error" class="err"></div>
+      <button class="btn btn-primary" id="loginBtn">Войти</button>
+    </div>
+    <div class="card">
+      Нет аккаунта? <a href="/register.html">Регистрация</a>
+    </div>
+  </div>
+
+  <script src="/client-auth.js"></script>
+  <script>
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const login = document.getElementById("login").value.trim();
+      const password = document.getElementById("password").value;
+      const errorEl = document.getElementById("error");
+      errorEl.textContent = "";
+      if (!login || !password) {
+        errorEl.textContent = "Введите логин и пароль";
+        return;
+      }
+      const r = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login, password }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        errorEl.textContent = data.error || "Ошибка входа";
+        return;
+      }
+      saveToken(data.token);
+      if (data.client?.role === "админ" || data.client?.role === "повар") {
+        location.href = "/index.html";
+      } else {
+        location.href = "/menu.html";
+      }
+    });
+  </script>
+</body>
+</html>
