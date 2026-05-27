@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EAT&FIT - Мои заказы</title>
+  <link rel="stylesheet" href="/client.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>📋 Мои заказы</h1>
+    <div class="sub">История ваших заказов</div>
+
+    <div class="nav">
+      <a href="/menu.html">Меню</a>
+      <a href="/my-orders.html">Мои заказы</a>
+      <a href="/profile.html">Профиль</a>
+      <a href="#" onclick="logout()">Выход</a>
+    </div>
+
+    <div id="ordersList"></div>
+  </div>
+
+  <script src="/client-auth.js"></script>
+  <script>
+    const statusMap = {
+      new: "🆕 Новый",
+      cooking: "👨‍🍳 Готовится",
+      done: "✅ Готово",
+      delivered: "🚗 Доставлен",
+    };
+
+    async function init() {
+      const client = await requireAuth();
+      if (!client) return;
+
+      const r = await authFetch("/api/client/orders");
+      const orders = await r.json();
+      const el = document.getElementById("ordersList");
+
+      if (!orders.length) {
+        el.innerHTML = '<div class="card">У вас пока нет заказов. Перейдите в <a href="/menu.html">Меню</a>!</div>';
+        return;
+      }
+
+      el.innerHTML = orders.map(o => `
+        <div class="menu-item">
+          <div class="menu-top">
+            <div class="menu-name">${o.dish} × ${o.qty || 1}</div>
+            <div style="font-size:12px;color:#6b7280">${o.date}</div>
+          </div>
+          <div class="badges" style="margin-top:6px">
+            <span class="badge badge-kcal">${statusMap[o.status] || o.status}</span>
+            ${o.note ? '<span class="badge badge-price">⚠️ ' + o.note + "</span>" : ""}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    init();
+  </script>
+</body>
+</html>
