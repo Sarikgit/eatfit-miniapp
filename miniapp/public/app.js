@@ -278,7 +278,7 @@ async function loadMenuList() {
       el.innerHTML = '<div class="empty"><div class="empty-icon">🍽</div><div class="empty-text">Меню пустое</div></div>';
       return;
     }
-    const cats = { breakfast: "Завтрак", lunch: "Обед", dinner: "Ужин", snack: "Снек" };
+    const cats = { breakfast: "Завтрак", lunch: "Обед", dinner: "Ужин", snack: "Полдник" };
     el.innerHTML = items
       .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
       .map((m) => `<div class="menu-card">
