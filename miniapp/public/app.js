@@ -25,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function showTab(name, tabEl) {
   if (name === "deposits") loadDepositClients();
-  if (name === "deposits") loadDepositClients();
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
   document.querySelectorAll(".nav-tab").forEach((t) => t.classList.remove("active"));
   document.getElementById("page-" + name).classList.add("active");
