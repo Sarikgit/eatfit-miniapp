@@ -82,7 +82,13 @@
       });
       const data = await r.json();
       if (data.ok) {
-        showToast("✅ Заказ оформлен!");
+        var msg = "✅ Заказ оформлен! Списано: " + Number(data.charged).toLocaleString("ru") + " сум";
+        if (data.debt) {
+          msg += "\n⚠️ Внимание: у вас долг " + Number(Math.abs(data.balance)).toLocaleString("ru") + " сум";
+        } else {
+          msg += "\nОстаток: " + Number(data.balance).toLocaleString("ru") + " сум";
+        }
+        showToast(msg);
       } else {
         showToast("Ошибка: " + (data.error || ""));
       }
