@@ -527,16 +527,42 @@ app.post("/api/client/order", async (req, res) => {
   if (!menuItem.rows.length) return res.status(404).json({ error: "Блюдо не найдено" });
   const dish = menuItem.rows[0];
 
+  const orderQty = qty || 1;
+  const totalPrice = (dish.price || 0) * orderQty;
   const orderDate = date || new Date().toISOString().split("T")[0];
-  const id = newId("ord");
+  const orderId = newId("ord");
 
+  // Создаём заказ
   await pool.query(
     `INSERT INTO orders (id, client_name, date, dish, qty, note, phone, status, created_at)
      VALUES ($1,$2,$3,$4,$5,$6,$7,'new',NOW())`,
-    [id, client.name, orderDate, dish.name, qty || 1, note || "", client.phone]
+    [orderId, client.name, orderDate, dish.name, orderQty, note || "", client.phone]
   );
 
-  res.json({ ok: true, order_id: id });
+  // Автосписание с депозита (если нет денег — уходит в минус = долг)
+  if (totalPrice > 0) {
+    await pool.query(
+      `INSERT INTO deposits (id, client_id, amount, type, note, created_at)
+       VALUES ($1,$2,$3,'charge',$4,NOW())`,
+      [newId("dep"), client.id, -totalPrice, "Заказ: " + dish.name + " x" + orderQty]
+    );
+  }
+
+  // Проверяем баланс после списания
+  const { rows: balRow } = await pool.query(
+    "SELECT COALESCE(SUM(amount), 0) as balance FROM deposits WHERE client_id = $1",
+    [client.id]
+  );
+  const balance = balRow[0].balance;
+  const isDebt = balance < 0;
+
+  res.json({
+    ok: true,
+    order_id: orderId,
+    charged: totalPrice,
+    balance: balance,
+    debt: isDebt,
+  });
 });
 
 // ── История заказов клиента ──
