@@ -23,7 +23,7 @@
       <button class="cat-btn" onclick="filterCat('breakfast', this)">🌅 Завтрак</button>
       <button class="cat-btn" onclick="filterCat('lunch', this)">🍱 Обед</button>
       <button class="cat-btn" onclick="filterCat('dinner', this)">🌙 Ужин</button>
-      <button class="cat-btn" onclick="filterCat('snack', this)">🥜 Снек</button>
+      <button class="cat-btn" onclick="filterCat('snack', this)">🫖 Полдник</button>
     </div>
 
     <div id="menuList"></div>
@@ -52,20 +52,21 @@
         return;
       }
       list.innerHTML = items.map(m => `
-        <div class="menu-item">
-          <div class="menu-top">
-            <div class="menu-name">${m.emoji || "🍽️"} ${m.name}</div>
+        <div class="menu-item" style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:16px;font-weight:700">${m.emoji || "🍽️"} ${m.name}</div>
           </div>
-          <div style="color:#6b7280;font-size:13px;margin-bottom:8px">${m.desc || ""}</div>
-          <div class="badges">
-            <span class="badge badge-kcal">${m.kcal || 0} ккал</span>
-            <span class="badge badge-price">${Number(m.price||0).toLocaleString("ru")} сум</span>
+          <div style="color:#6b7280;font-size:13px;margin-bottom:10px;line-height:1.5">${m.desc || ""}</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="background:#d8f3dc;color:#1b4332;font-size:12px;padding:4px 10px;border-radius:20px;font-weight:600">${m.kcal || 0} ккал</span>
+            <span style="background:#fff3e0;color:#7c4700;font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700">${Number(m.price||0).toLocaleString("ru")} сум</span>
           </div>
-          <div style="display:flex;gap:8px;margin-top:10px">
+          <div style="display:flex;gap:8px;align-items:center">
             <input type="number" id="qty-${m.id}" value="1" min="1" max="10"
-              style="width:50px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;font-size:15px">
-            <button class="btn btn-primary" style="flex:1" onclick="orderItem('${m.id}')">
-              Заказать
+              style="width:52px;padding:10px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:16px;font-weight:700;text-align:center">
+            <button onclick="orderItem('${m.id}')"
+              style="flex:1;padding:12px;background:#2d6a4f;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer">
+              🛒 Заказать
             </button>
           </div>
         </div>
